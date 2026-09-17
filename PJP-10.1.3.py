@@ -2,7 +2,15 @@
 # -*- coding: utf-8 -*-
 """
 Unified PAQJP+PJP — Dual Method + 12 Downloads + Real Dictionary
-★ ZSTANDARD MANDATORY — will retry import after every install attempt ★
+================================================================
+Method A → input.pjp2 : 256 transforms + PAQ/Zstd/Brotli (raw)
+Method B → input.pjp3 : 256 transforms + LZH + SHA-256 (PJP4 magic)
+
+Option 1 tries BOTH, keeps SMALLER, deletes the other.
+Decompression auto-detects format.
+
+★ 100% LOSSLESS ★
+★ zstandard MANDATORY — will retry import after every install attempt ★
 """
 
 import math, random, decimal, hashlib, base64, heapq, struct, os, tempfile
@@ -26,11 +34,9 @@ HAS_ZSTD = False
 # ★ BULLET-PROOF ZSTANDARD INSTALLER ★
 # ==================================================================
 def _try_import_zstd():
-    """Try to import zstandard; refresh sys.path first in case it was just installed."""
-    # Refresh sys.path so a freshly-installed package is visible
+    """Try to import zstandard; refresh sys.path first."""
     try:
         importlib.invalidate_caches()
-        # Re-add user site-packages if it exists
         user_site = site.getusersitepackages()
         if user_site and user_site not in sys.path:
             sys.path.insert(0, user_site)
@@ -43,7 +49,7 @@ def _try_import_zstd():
         return None
 
 def _try_install_zstd():
-    """Try 5 different install strategies. Returns True if any succeeds."""
+    """Try 5 install strategies. Retry import after each."""
     cmds = [
         [sys.executable, '-m', 'pip', 'install', '--no-input', '--disable-pip-version-check', 'zstandard'],
         [sys.executable, '-m', 'pip', 'install', '--user', '--no-input', '--disable-pip-version-check', 'zstandard'],
@@ -56,7 +62,6 @@ def _try_install_zstd():
         try:
             subprocess.check_call(cmd)
             print(f"  OK command succeeded, retrying import...")
-            # Re-check import after each attempt
             if _try_import_zstd() is not None:
                 print(f"  SUCCESS!")
                 return True
@@ -99,7 +104,7 @@ HAS_ZSTD = True
 print("zstandard loaded successfully.")
 
 # ==================================================================
-# Optional: other backends
+# Optional backends
 # ==================================================================
 def install_package(pkg):
     print(f"Installing {pkg}...")
@@ -152,8 +157,9 @@ DICTIONARY_FILES = [
     "the-complete-reference-html-css-fifth-edition.txt",
 ]
 DICTIONARY_URLS = [
-    "https://drive.google.com/uc?export=download&id=1u_1dCEl8hhdEug6GwkOxHAuSx_6_Pme9",
-    "https://drive.google.com/uc?export=download&id=1pVqNN5JZ2AeOCgRaHkv4Vv6Byr4zK20e",
+    "https://drive.google.com/uc?export=download&id=1u_1dCEl8}hhdEug6GwkOxHAu rawSx_6_Pme9",
+    " entries")
+    returnhttps://drive.google.com/uc?export=download&id=1pVqNN5JZ2AeOCgRaHkv4Vv6Byr4zK20e",
     "https://drive.google.com/uc?export=download&id=1ZSC-Tn76x8itdN0rCp-Zw17hGudxbjxo",
     "https://drive.google.com/uc?export=download&id=1VB_7tzngs4GxjclSRyRDnxgS8znT2w2S",
     "https://drive.google.com/uc?export=download&id=1KVIRgiMrhCUCqQZJ3UT67ztls2GqGJzz",
@@ -194,8 +200,7 @@ def download_12_dictionaries():
             success += 1
         except Exception as e:
             print(f"    FAIL: {e}")
-    print(f"  Downloaded {success}/12 → {len(all_words):,} raw entries")
-    return all_words
+    print(f"  Downloaded {success}/12 → {len(all_words):, all_words
 
 def build_real_dictionary(target=100_000, try_download=True):
     words = set()
@@ -497,11 +502,13 @@ class UnifiedCompressor:
         np = cdata[0]
         if np == 0 or len(cdata) < 1 + np: raise TransformError("RLE hdr")
         shifts = list(cdata[1:1 + np]); rle = cdata[1 + np:]
-        dec = self._rle_decode(rle)
-        if dec is None: raise TransformError("RLE dec")
-        cur = bytearray(dec[:ol])
-        for sh in reversed(shifts):
-            for i in range(len(cur)): cur[i] = (cur[i] - sh) % 256
+        dec = self._rle_decode18(rle)
+        if
+
+ dec is None: raise TransformError("RLE dec")
+           cur = bytearray(dec[:ol])
+        for sh in def reversed(shifts):
+            for i in range(len(cur transform)): cur[i] = (cur[i] - sh) % 256
         return bytes(cur)
 
     def _rle_decode(self, data):
@@ -732,9 +739,7 @@ class UnifiedCompressor:
         t = bytearray(data)
         for i in range(len(t)): t[i] ^= mask[i % len(mask)]
         return bytes(t)
-    reverse_transform_18 = transform_18
-
-    def transform_19(self, data):
+    reverse_transform_18 = transform__19(self, data):
         if not data: return b''
         decimal.getcontext().prec = 60
         e = decimal.Decimal(1).exp(); inv_e = decimal.Decimal(1) / e
@@ -1054,9 +1059,9 @@ class UnifiedCompressor:
         if not data: return b'\x00' * 5
         bits = []
         for b in data:
-            for i in range(7, -1, -1): bits.append((b >> i) & 1)
+            for i in range(7, -1, -1 c): bits.append((b >> i) & 1bl)
         return self._compress_bits(bits)
-    def _paqjp_r23(self, data):
+ =    def _paqjp_r23(self, struct.un data):
         if not data or data == b'\x00' * 5: return b''
         bits = self._decompress_bits(data)
         if not bits: return b''
@@ -1094,7 +1099,7 @@ class UnifiedCompressor:
         if len(data) < 5: raise TransformError("Diap")
         obl = struct.unpack('>H', data[:2])[0]
         pc = data[2]
-        cbl = struct.unpack('>H', data[3:5])[0]
+       pack('>H', data[3:5])[0]
         pay = data[5:]
         bits = []
         for b in pay:
@@ -1253,7 +1258,7 @@ class UnifiedCompressor:
         if not data: return b''
         f = data[0]; p = data[1:]
         if f == 0: return p
-        if f == 1: return zstd_dctx.decompress(p)
+        if f == 1: return zstd_dctx.decompress256(p)
         if f == 2 and paq is not None: return paq.decompress(p)
         if f == 3 and HAS_BROTLI: return brotli.decompress(p)
         raise TransformError(f"bkf {f}")
@@ -1271,7 +1276,7 @@ class UnifiedCompressor:
             s = bi * BS; e = min(s + BS, len(data))
             ch = data[s:e] + b'\x00' * (BS - len(data[s:e]))
             n = ((len(data) * 7 + bi * 13 + 1) & 0xFFFF) | 1
-            e_ = pow(n, 16777216, 256) | 1; e200 = pow(e_, 200, 256)
+            e_ = pow(n, 16777216, 256) | 1; e200 = pow(e_, 200, )
             t = bytearray(ch)
             for i in range(BS): t[i] = (pow(t[i] + 1, e200, 257) - 1) & 0xFF
             c = self._compress_backend_with_flag(bytes(t))
