@@ -157,9 +157,8 @@ DICTIONARY_FILES = [
     "the-complete-reference-html-css-fifth-edition.txt",
 ]
 DICTIONARY_URLS = [
-    "https://drive.google.com/uc?export=download&id=1u_1dCEl8}hhdEug6GwkOxHAu rawSx_6_Pme9",
-    " entries")
-    returnhttps://drive.google.com/uc?export=download&id=1pVqNN5JZ2AeOCgRaHkv4Vv6Byr4zK20e",
+    "https://drive.google.com/uc?export=download&id=1u_1dCEl8hhdEug6GwkOxHAu_rawSx_6_Pme9",
+    "https://drive.google.com/uc?export=download&id=1pVqNN5JZ2AeOCgRaHkv4Vv6Byr4zK20e",
     "https://drive.google.com/uc?export=download&id=1ZSC-Tn76x8itdN0rCp-Zw17hGudxbjxo",
     "https://drive.google.com/uc?export=download&id=1VB_7tzngs4GxjclSRyRDnxgS8znT2w2S",
     "https://drive.google.com/uc?export=download&id=1KVIRgiMrhCUCqQZJ3UT67ztls2GqGJzz",
@@ -200,9 +199,10 @@ def download_12_dictionaries():
             success += 1
         except Exception as e:
             print(f"    FAIL: {e}")
-    print(f"  Downloaded {success}/12 → {len(all_words):, all_words
+    print(f"  Downloaded {success}/12 → {len(all_words):,} words")
+    return all_words
 
-def build_real_dictionary(target=100_000, try_download=True):
+def build_real_dictionary(try_download=True):
     words = set()
     if try_download:
         print("\nStep 1: 12 Google Drive dictionary files")
@@ -212,48 +212,44 @@ def build_real_dictionary(target=100_000, try_download=True):
         except Exception as e:
             print(f"  Download error (ignored): {e}")
 
-    if len(words) < target:
-        print("\nStep 2: System dictionaries")
-        for path in ["/usr/share/dict/words", "/usr/share/dict/american-english",
-                     "/usr/share/dict/british-english", "/usr/share/hunspell/en_US.dic",
-                     os.path.expanduser("~/.local/share/dict/words")]:
-            if os.path.exists(path):
-                try:
-                    with open(path, 'r', encoding='utf-8', errors='ignore') as f:
-                        for line in f:
-                            w = line.split('/')[0].strip().lower()
-                            if w and w.isalpha() and 1 <= len(w) <= 64:
-                                words.add(w)
-                    print(f"  {path}: total {len(words):,}")
-                    if len(words) >= target: break
-                except Exception as e:
-                    print(f"  Skip {path}: {e}")
+    print("\nStep 2: System dictionaries")
+    for path in ["/usr/share/dict/words", "/usr/share/dict/american-english",
+                 "/usr/share/dict/british-english", "/usr/share/hunspell/en_US.dic",
+                 os.path.expanduser("~/.local/share/dict/words")]:
+        if os.path.exists(path):
+            try:
+                with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+                    for line in f:
+                        w = line.split('/')[0].strip().lower()
+                        if w and w.isalpha() and 1 <= len(w) <= 64:
+                            words.add(w)
+                print(f"  {path}: total {len(words):,}")
+            except Exception as e:
+                print(f"  Skip {path}: {e}")
 
-    if len(words) < target:
-        print("\nStep 3: english-words pip package")
-        try:
-            from english_words import get_english_words_set
-            extra = {w.lower() for w in get_english_words_set(['web2', 'gcide'], lower=True)
-                     if w.isalpha() and len(w) <= 64}
-            words |= extra
-            print(f"  Total: {len(words):,}")
-        except ImportError:
-            print("  Not installed")
-        except Exception as e:
-            print(f"  Failed: {e}")
+    print("\nStep 3: english-words pip package")
+    try:
+        from english_words import get_english_words_set
+        extra = {w.lower() for w in get_english_words_set(['web2', 'gcide'], lower=True)
+                 if w.isalpha() and len(w) <= 64}
+        words |= extra
+        print(f"  Total: {len(words):,}")
+    except ImportError:
+        print("  Not installed")
+    except Exception as e:
+        print(f"  Failed: {e}")
 
-    if len(words) < target:
-        print("\nStep 4: NLTK WordNet")
-        try:
-            from nltk.corpus import words as nltk_words
-            extra = {w.lower() for w in nltk_words.words() if w.isalpha() and len(w) <= 64}
-            words |= extra
-            print(f"  Total: {len(words):,}")
-        except Exception:
-            print("  Not available")
+    print("\nStep 4: NLTK WordNet")
+    try:
+        from nltk.corpus import words as nltk_words
+        extra = {w.lower() for w in nltk_words.words() if w.isalpha() and len(w) <= 64}
+        words |= extra
+        print(f"  Total: {len(words):,}")
+    except Exception:
+        print("  Not available")
 
-    if len(words) < 1000:
-        print("\nStep 5: AI-generated fallback")
+    if len(words) < 100:
+        print("\nStep 5: AI-generated fallback (minimal)")
         words |= _build_ai_dictionary()
 
     words = sorted(w for w in words if w and w.isascii() and 1 <= len(w) <= 64)
@@ -384,7 +380,7 @@ class UnifiedCompressor:
         print("\n" + "=" * 60)
         print("BUILDING DICTIONARY")
         print("=" * 60)
-        words = build_real_dictionary(target=100_000, try_download=try_download)
+        words = build_real_dictionary(try_download=try_download)
         self.static_dict = words
         self.word_to_index = {w: i for i, w in enumerate(words)}
 
@@ -502,13 +498,11 @@ class UnifiedCompressor:
         np = cdata[0]
         if np == 0 or len(cdata) < 1 + np: raise TransformError("RLE hdr")
         shifts = list(cdata[1:1 + np]); rle = cdata[1 + np:]
-        dec = self._rle_decode18(rle)
-        if
-
- dec is None: raise TransformError("RLE dec")
-           cur = bytearray(dec[:ol])
-        for sh in def reversed(shifts):
-            for i in range(len(cur transform)): cur[i] = (cur[i] - sh) % 256
+        dec = self._rle_decode(rle)
+        if dec is None: raise TransformError("RLE dec")
+        cur = bytearray(dec[:ol])
+        for sh in reversed(shifts):
+            for i in range(len(cur)): cur[i] = (cur[i] - sh) % 256
         return bytes(cur)
 
     def _rle_decode(self, data):
@@ -739,16 +733,35 @@ class UnifiedCompressor:
         t = bytearray(data)
         for i in range(len(t)): t[i] ^= mask[i % len(mask)]
         return bytes(t)
-    reverse_transform_18 = transform__19(self, data):
+    def reverse_transform_18(self, data):
         if not data: return b''
         decimal.getcontext().prec = 60
-        e = decimal.Decimal(1).exp(); inv_e = decimal.Decimal(1) / e
-        s = str(inv_e).replace('.', '')[:max(10, len(data) // 2 + 5)]
+        pi = decimal.Decimal("3.14159265358979323846264338327950288419716939937510")
+        basel = (pi * pi) / decimal.Decimal(6)
+        s = str(basel).replace('.', '')[:max(10, len(data) // 2 + 5)]
         mask = bytes(int(s[i:i + 2]) % 256 for i in range(0, len(s), 2))
         t = bytearray(data)
         for i in range(len(t)): t[i] ^= mask[i % len(mask)]
         return bytes(t)
-    reverse_transform_19 = transform_19
+
+    def transform_19(self, data):
+        if not data: return b''
+        decimal.getcontext().prec = 60
+        e = decimal.Decimal(1).exp(); five_e = decimal.Decimal(5) * e
+        s = str(five_e).replace('.', '')[:max(10, len(data) // 2 + 5)]
+        mask = bytes(int(s[i:i + 2]) % 256 for i in range(0, len(s), 2))
+        t = bytearray(data)
+        for i in range(len(t)): t[i] ^= mask[i % len(mask)]
+        return bytes(t)
+    def reverse_transform_19(self, data):
+        if not data: return b''
+        decimal.getcontext().prec = 60
+        e = decimal.Decimal(1).exp(); five_e = decimal.Decimal(5) * e
+        s = str(five_e).replace('.', '')[:max(10, len(data) // 2 + 5)]
+        mask = bytes(int(s[i:i + 2]) % 256 for i in range(0, len(s), 2))
+        t = bytearray(data)
+        for i in range(len(t)): t[i] ^= mask[i % len(mask)]
+        return bytes(t)
 
     def transform_20(self, data):
         if not data: return b''
@@ -1059,9 +1072,10 @@ class UnifiedCompressor:
         if not data: return b'\x00' * 5
         bits = []
         for b in data:
-            for i in range(7, -1, -1 c): bits.append((b >> i) & 1bl)
+            for i in range(7, -1, -1): bits.append((b >> i) & 1)
         return self._compress_bits(bits)
- =    def _paqjp_r23(self, struct.un data):
+
+    def _paqjp_r23(self, data):
         if not data or data == b'\x00' * 5: return b''
         bits = self._decompress_bits(data)
         if not bits: return b''
@@ -1099,7 +1113,7 @@ class UnifiedCompressor:
         if len(data) < 5: raise TransformError("Diap")
         obl = struct.unpack('>H', data[:2])[0]
         pc = data[2]
-       pack('>H', data[3:5])[0]
+        cbl = struct.unpack('>H', data[3:5])[0]
         pay = data[5:]
         bits = []
         for b in pay:
@@ -1258,7 +1272,7 @@ class UnifiedCompressor:
         if not data: return b''
         f = data[0]; p = data[1:]
         if f == 0: return p
-        if f == 1: return zstd_dctx.decompress256(p)
+        if f == 1: return zstd_dctx.decompress(p)
         if f == 2 and paq is not None: return paq.decompress(p)
         if f == 3 and HAS_BROTLI: return brotli.decompress(p)
         raise TransformError(f"bkf {f}")
@@ -1276,7 +1290,7 @@ class UnifiedCompressor:
             s = bi * BS; e = min(s + BS, len(data))
             ch = data[s:e] + b'\x00' * (BS - len(data[s:e]))
             n = ((len(data) * 7 + bi * 13 + 1) & 0xFFFF) | 1
-            e_ = pow(n, 16777216, 256) | 1; e200 = pow(e_, 200, )
+            e_ = pow(n, 16777216, 256) | 1; e200 = pow(e_, 200, 256)
             t = bytearray(ch)
             for i in range(BS): t[i] = (pow(t[i] + 1, e200, 257) - 1) & 0xFF
             c = self._compress_backend_with_flag(bytes(t))
