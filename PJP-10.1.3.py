@@ -2,19 +2,11 @@
 # -*- coding: utf-8 -*-
 """
 Unified PAQJP+PJP — Dual Method + 12 Downloads + Real Dictionary
-================================================================
-Method A → input.pjp2 : 256 transforms + PAQ/Zstd/Brotli (raw)
-Method B → input.pjp3 : 256 transforms + LZH + SHA-256 (PJP4 magic)
-
-Option 1 tries BOTH, keeps SMALLER, deletes the other.
-Decompression auto-detects format.
-
-★ 100% LOSSLESS ★
-★ zstandard MANDATORY — pip install zstandard ★
+★ ZSTANDARD MANDATORY — will retry import after every install attempt ★
 """
 
 import math, random, decimal, hashlib, base64, heapq, struct, os, tempfile
-import re, sys, subprocess, importlib, time, urllib.request
+import re, sys, subprocess, importlib, time, urllib.request, site
 from typing import Optional, List, Tuple, Dict, Callable, Any
 from collections import Counter
 
@@ -30,6 +22,85 @@ USE_QUANTUM = False
 HAS_QISKIT = False
 HAS_ZSTD = False
 
+# ==================================================================
+# ★ BULLET-PROOF ZSTANDARD INSTALLER ★
+# ==================================================================
+def _try_import_zstd():
+    """Try to import zstandard; refresh sys.path first in case it was just installed."""
+    # Refresh sys.path so a freshly-installed package is visible
+    try:
+        importlib.invalidate_caches()
+        # Re-add user site-packages if it exists
+        user_site = site.getusersitepackages()
+        if user_site and user_site not in sys.path:
+            sys.path.insert(0, user_site)
+    except Exception:
+        pass
+    try:
+        import zstandard as zstd
+        return zstd
+    except ImportError:
+        return None
+
+def _try_install_zstd():
+    """Try 5 different install strategies. Returns True if any succeeds."""
+    cmds = [
+        [sys.executable, '-m', 'pip', 'install', '--no-input', '--disable-pip-version-check', 'zstandard'],
+        [sys.executable, '-m', 'pip', 'install', '--user', '--no-input', '--disable-pip-version-check', 'zstandard'],
+        [sys.executable, '-m', 'pip', 'install', '--break-system-packages', '--no-input', '--disable-pip-version-check', 'zstandard'],
+        ['pip', 'install', '--no-input', '--disable-pip-version-check', 'zstandard'],
+        ['pip3', 'install', '--no-input', '--disable-pip-version-check', 'zstandard'],
+    ]
+    for cmd in cmds:
+        print(f"  Trying: {' '.join(cmd)}")
+        try:
+            subprocess.check_call(cmd)
+            print(f"  OK command succeeded, retrying import...")
+            # Re-check import after each attempt
+            if _try_import_zstd() is not None:
+                print(f"  SUCCESS!")
+                return True
+        except Exception as e:
+            print(f"  FAILED: {e}")
+    return False
+
+print("=" * 70)
+print("Checking zstandard (MANDATORY backend)...")
+print("=" * 70)
+
+_zstd = _try_import_zstd()
+
+if _zstd is None:
+    print("zstandard NOT FOUND. Trying to install automatically...")
+    if not _try_install_zstd():
+        print()
+        print("=" * 70)
+        print("FATAL: Could not install zstandard automatically.")
+        print()
+        print("Please open a TERMINAL and run one of these commands:")
+        print()
+        print("    pip install zstandard")
+        print("    pip install --user zstandard")
+        print("    pip install --break-system-packages zstandard")
+        print()
+        print("Then re-run this script.")
+        print("=" * 70)
+        sys.exit(1)
+    _zstd = _try_import_zstd()
+    if _zstd is None:
+        print("FATAL: zstandard installed but still cannot be imported.")
+        print("Try closing and reopening the Python process / Codespace.")
+        sys.exit(1)
+
+zstd = _zstd
+zstd_cctx = zstd.ZstdCompressor(level=22)
+zstd_dctx = zstd.ZstdDecompressor()
+HAS_ZSTD = True
+print("zstandard loaded successfully.")
+
+# ==================================================================
+# Optional: other backends
+# ==================================================================
 def install_package(pkg):
     print(f"Installing {pkg}...")
     for cmd in [
@@ -63,21 +134,6 @@ if input("Option 2: Install paq + brotli? (y/n) [y]: ").strip().lower() != 'n':
     try: import brotli; HAS_BROTLI = True
     except ImportError: brotli = None; HAS_BROTLI = False
 else: print("Skipping paq + brotli.")
-
-if input("Option 3: Install zstandard (MANDATORY)? (y/n) [y]: ").strip().lower() == 'n':
-    print("ERROR: zstandard is MANDATORY."); sys.exit(1)
-try:
-    import zstandard as zstd
-    zstd_cctx = zstd.ZstdCompressor(level=22)
-    zstd_dctx = zstd.ZstdDecompressor()
-    HAS_ZSTD = True; print("zstandard loaded.")
-except ImportError:
-    if install_package('zstandard'):
-        import zstandard as zstd
-        zstd_cctx = zstd.ZstdCompressor(level=22)
-        zstd_dctx = zstd.ZstdDecompressor()
-        HAS_ZSTD = True
-    else: print("CRITICAL: pip install zstandard"); sys.exit(1)
 
 print(f"\nBackends: zstd=Y paq={'Y' if paq else 'N'} brotli={'Y' if HAS_BROTLI else 'N'}")
 
@@ -114,8 +170,7 @@ def download_12_dictionaries():
     if not os.path.exists(DICT_DIR):
         try: os.makedirs(DICT_DIR)
         except Exception: pass
-    all_words = set()
-    success = 0
+    all_words = set(); success = 0
     for filename, url in zip(DICTIONARY_FILES, DICTIONARY_URLS):
         local_path = os.path.join(DICT_DIR, filename)
         print(f"  Downloading {filename} ...")
@@ -124,8 +179,7 @@ def download_12_dictionaries():
             with urllib.request.urlopen(req, timeout=20) as response:
                 content = response.read()
             if b'<html' in content[:200].lower():
-                print(f"    WARNING: HTML. Skip.")
-                continue
+                print(f"    WARNING: HTML. Skip."); continue
             with open(local_path, 'wb') as f: f.write(content)
             text = content.decode('utf-8', errors='ignore')
             for line in text.splitlines():
@@ -179,7 +233,7 @@ def build_real_dictionary(target=100_000, try_download=True):
             words |= extra
             print(f"  Total: {len(words):,}")
         except ImportError:
-            print("  Not installed (pip install english-words)")
+            print("  Not installed")
         except Exception as e:
             print(f"  Failed: {e}")
 
@@ -371,20 +425,8 @@ class UnifiedCompressor:
     def _verify_lossless(self, orig, trans, rev):
         try: return rev(trans) == orig
         except Exception: return False
-    def get_pi_digits(self, n):
-        return self.PI_STR[2:2 + n] if n >= 1 else ""
-    def find_lossless_k(self, n):
-        if n < 1: return 0, True
-        true_scaled = int(self.PI_STR.replace('.', '')[:n + 1])
-        DF = 16777216
-        decimal.getcontext().prec = 50
-        k_float = (decimal.Decimal(self.PI_STR) - 3) * DF
-        k = max(0, min(int(round(k_float)), DF - 1))
-        return k, (3 * 10 ** n * DF + k * 10 ** n) // DF == true_scaled
-    def to_bin(self, v, b): return format(v, 'b').zfill(b)
-    def get_bit_size(self, k): return 23 if k <= 0x7FFFFF else 25
 
-    # ---------------- Transform 00 — RLE ----------------
+    # ---------------- Transform 00 ----------------
     def transform_00(self, data):
         if not data: return struct.pack('>I', 0)
         br, bl, bsh = None, float('inf'), []
@@ -683,7 +725,7 @@ class UnifiedCompressor:
     def transform_18(self, data):
         if not data: return b''
         decimal.getcontext().prec = 60
-        pi = decimal.Decimal(self.PI_STR)
+        pi = decimal.Decimal("3.14159265358979323846264338327950288419716939937510")
         basel = (pi * pi) / decimal.Decimal(6)
         s = str(basel).replace('.', '')[:max(10, len(data) // 2 + 5)]
         mask = bytes(int(s[i:i + 2]) % 256 for i in range(0, len(s), 2))
@@ -721,7 +763,7 @@ class UnifiedCompressor:
         if not data: return b''
         return bytes((b - 255) % 256 for b in data)
 
-    # ---------------- Transforms 22-30 ----------------
+    # ---------------- 22-30 ----------------
     def transform_22(self, data): return base64.b64encode(data)
     def reverse_transform_22(self, data):
         try: return base64.b64decode(data, validate=False)
@@ -1196,9 +1238,8 @@ class UnifiedCompressor:
 
     def _compress_backend_with_flag(self, data):
         cands = []
-        if HAS_ZSTD:
-            try: cands.append((1, zstd_cctx.compress(data)))
-            except Exception: pass
+        try: cands.append((1, zstd_cctx.compress(data)))
+        except Exception: pass
         if paq is not None:
             try: cands.append((2, paq.compress(data)))
             except Exception: pass
@@ -1212,7 +1253,7 @@ class UnifiedCompressor:
         if not data: return b''
         f = data[0]; p = data[1:]
         if f == 0: return p
-        if f == 1 and HAS_ZSTD: return zstd_dctx.decompress(p)
+        if f == 1: return zstd_dctx.decompress(p)
         if f == 2 and paq is not None: return paq.decompress(p)
         if f == 3 and HAS_BROTLI: return brotli.decompress(p)
         raise TransformError(f"bkf {f}")
@@ -1544,12 +1585,11 @@ class UnifiedCompressor:
     # ---------------- Backends ----------------
     def _compress_backend(self, data):
         cands = [(0, data)]
-        if HAS_ZSTD:
-            try:
-                c = zstd_cctx.compress(data)
-                if len(c) >= 4 and c[:4] == b'\x28\xb5\x2f\xfd': c = c[4:]
-                cands.append((1, c))
-            except Exception: pass
+        try:
+            c = zstd_cctx.compress(data)
+            if len(c) >= 4 and c[:4] == b'\x28\xb5\x2f\xfd': c = c[4:]
+            cands.append((1, c))
+        except Exception: pass
         if paq is not None:
             try:
                 pd = paq.compress(data)
@@ -1567,7 +1607,7 @@ class UnifiedCompressor:
         if len(data) < 1: return None
         f = data[0]; p = data[1:]
         if f == 0: return p
-        if f == 1 and HAS_ZSTD:
+        if f == 1:
             try: return zstd_dctx.decompress(b'\x28\xb5\x2f\xfd' + p)
             except Exception: return None
         if f == 2 and paq is not None:
@@ -1581,7 +1621,7 @@ class UnifiedCompressor:
             except Exception: return None
         return None
 
-    # ---------------- LZH pipeline ----------------
+    # ---------------- LZH ----------------
     def _lz77_tokenize(self, data):
         tokens = []; i = 0; n = len(data)
         while i < n:
@@ -1725,8 +1765,7 @@ class UnifiedCompressor:
                 if not self._verify_lossless(data, tr, self.rev_transforms[t]): continue
                 try_c(self._encode_marker_single(t), tr)
             except Exception: continue
-        if best is None:
-            best = self._encode_marker_raw() + self._compress_backend(data)
+        if best is None: best = self._encode_marker_raw() + self._compress_backend(data)
         d, _ = self._decompress_auto(best)
         if d == data: return best
         return self._encode_marker_raw() + self._compress_backend(data)
@@ -1748,8 +1787,7 @@ class UnifiedCompressor:
                 if not self._verify_lossless(data, tr, self.rev_transforms[t]): continue
                 try_c(self._encode_marker_single(t), tr)
             except Exception: continue
-        if best is None:
-            best = self._encode_marker_raw() + self._compress_backend(data)
+        if best is None: best = self._encode_marker_raw() + self._compress_backend(data)
         return best
 
     def _decompress_auto(self, data):
