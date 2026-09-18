@@ -11,6 +11,10 @@ Decompression auto-detects format.
 
 ★ 100% LOSSLESS ★
 ★ zstandard MANDATORY — will retry import after every install attempt ★
+
+Word batches:
+  • A and B are embedded below.
+  • C through J are loaded from ./word_batches/batch_X.txt (skipped if absent).
 """
 
 import math, random, decimal, hashlib, base64, heapq, struct, os, tempfile
@@ -34,7 +38,6 @@ HAS_ZSTD = False
 # ★ BULLET-PROOF ZSTANDARD INSTALLER ★
 # ==================================================================
 def _try_import_zstd():
-    """Try to import zstandard; refresh sys.path first."""
     try:
         importlib.invalidate_caches()
         user_site = site.getusersitepackages()
@@ -49,7 +52,6 @@ def _try_import_zstd():
         return None
 
 def _try_install_zstd():
-    """Try 5 install strategies. Retry import after each."""
     cmds = [
         [sys.executable, '-m', 'pip', 'install', '--no-input', '--disable-pip-version-check', 'zstandard'],
         [sys.executable, '-m', 'pip', 'install', '--user', '--no-input', '--disable-pip-version-check', 'zstandard'],
@@ -171,6 +173,765 @@ DICTIONARY_URLS = [
     "https://drive.google.com/uc?export=download&id=1dDdqYDgm7f-smS7KF70Wf0KmyFo-ft1M",
 ]
 
+# ==================================================================
+# ★ REAL WORDS — EMBEDDED BATCHES A & B
+# ==================================================================
+REAL_WORDS_5000 = """
+able about above abroad absence absent absolute absorb abstract abuse accent accept access accident
+accompany accomplish accord account accurate accuse achieve acid acknowledge acquire across act action
+active activity actor actress actual adapt add addition address adequate adjust administration admire
+admit adopt adult advance advantage adventure advertise advice advise affair affect afford afraid
+africa after afternoon again against age agency agenda agent aggressive ago agree agriculture ahead
+aid aim air aircraft airline airport alarm album alcohol alive all alliance allow almost alone along
+already also alter alternative although always amateur amazing among amount analysis analyst ancient
+and anger angle angry animal anniversary announce annual another answer anxiety any anybody anymore
+anyone anything anyway anywhere apart apartment apologize apparent appeal appear apple application
+apply appoint appreciate approach appropriate approve april architecture area argue argument arise arm
+army around arrange arrest arrival arrive arrow art article artist as ashamed asia aside ask asleep
+aspect assault assert assess asset assign assist associate assume assure asteroid astonish athlete
+atlantic atmosphere atom attach attack attempt attend attention attitude attorney attract auction
+audience august aunt author authority auto autumn available average avoid awake award aware away
+awful baby back background backup bacon bad badly bag bake balance ball balloon ban banana band bank
+bar barely bargain barrel barrier base baseball basic basis basket basketball bath bathroom battery
+battle bay beach bean bear beard beast beat beautiful beauty because become bed bedroom bee beef beer
+before beg begin beginning behalf behave behavior behind being belief believe bell belong below belt
+bench bend beneath benefit beside besides best bet better between beyond bicycle bid big bike bill
+billion bind biology bird birth birthday biscuit bit bite bitter black blade blame blank blanket
+blast bleed blend bless blind block blood bloom blow blue board boat body boil bold bomb bond bone
+bonus book boom boost boot border bore boring born borrow boss both bother bottle bottom bounce bound
+boundary bow bowl box boy brain branch brand brass brave bread break breakfast breast breath breathe
+breed brick bridge brief bright brilliant bring broad broken bronze brook brother brown brush bubble
+bucket budget buffalo bug build building bulb bulk bullet bunch bundle burden bureau burn burst bury
+bus bush business busy but butter butterfly button buy cabin cable cage cake calculate calendar call
+calm camera camp campaign campus can canal cancel cancer candidate candle candy cannon canoe canvas
+cap capable capacity cape capital captain capture carbon card care career careful cargo carpet carry
+cart cartoon carve case cash cast castle casual cat catalog catch category cattle cause caution cave
+cease ceiling celebrate cell cellar cement cemetery census cent center central century cereal ceremony
+certain certificate chain chair chairman chalk challenge chamber champion chance change channel chaos
+chapter character charge charity charm chart charter chase cheap cheat check cheek cheer cheese chef
+chemical cherry chess chest chew chicken chief child childhood chill chimney chin china chip chocolate
+choice choose chop chorus christian christmas church cigarette cinema circle circuit circumstance cite
+citizen city civil claim clap clarify clash class classic clause clay clean clear clergy clerk clever
+click client cliff climate climb clinic clip clock close closet cloth clothes cloud club clue cluster
+coach coal coast coat code coffee coin cold collapse collar colleague collect college colonial column
+combine come comedy comfort comic command comment commerce commission commit committee common
+communicate community company compare compete complain complete complex comply component compose
+compound comprehensive compromise computer conceal concede conceive concentrate concept concern concert
+conclude concrete condition conduct conference confess confidence confirm conflict confront confuse
+congress connect conscious consent consider consist console constant constitute constrain construct
+consult consume contact contain contemporary contempt contend content contest context continent continue
+contract contrast contribute control controversy convenient convention conversation convert convey
+convict convince cook cool cooperate cope copy copper core corn corner corporate correct corridor cost
+cottage cotton couch cough could council counsel count counter country county couple courage course
+court cousin cover cow crack craft crash crazy cream create creature credit creek crew cricket crime
+criminal crisis crisp critic critical crop cross crowd crown crucial crude cruel cruise crush cry
+crystal cube cuisine cultural culture cup cupboard cure curious currency current curriculum curtain
+curve cushion custom customer cut cycle daily dairy dam damage damp dance danger dare dark darling dash
+data database date daughter dawn day dead deadline deaf deal dear death debate debt decade decent
+decide decision deck declare decline decorate decrease dedicate deed deep deer defeat defend define
+definite degree delay delegate delicate delicious delight deliver demand democracy demonstrate deny
+depart department depend deposit depress depth deputy derive describe desert deserve design desire
+desk desperate despite dessert destroy detail detect determine develop device devote diagram dial
+diamond diary dictionary die diet differ difficult dig digital dignity dilemma dinner dip diplomatic
+direct dirt dirty disagree disappear disaster discipline disclose discount discover discuss disease
+disguise disgust dish dismiss disorder display dispose dispute distance distinct distribute district
+disturb ditch dive diverse divide divorce dizzy dock doctor doctrine document dodge dog doll dollar
+domain domestic dominant donate donkey donor door dose double doubt dough dove down downstairs downtown
+dozen draft drag drain drama dramatic draw drawer dream dress drift drill drink drive driver drop drought
+drown drug drum drunk dry duck due dull dump during dust duty dwarf dye dynamic each eager eagle early
+earn earth ease east easy eat echo economy edge edit educate effect efficient effort egg eight either
+elbow elder elect electric elegant element elephant elevator eleven eliminate elite else elsewhere
+email embarrass embrace emerge emergency emotion emperor emphasis empire employ empty enable enclose
+encounter encourage end endless endorse enemy energy enforce engage engine engineer enhance enjoy
+enormous enough ensure enter entertain enthusiasm entire entitle entrance entry envelope environment
+envy episode equal equip era error escape especially essay essence essential establish estate estimate
+eternal ethic ethnic evaluate even evening event eventually ever every everybody everyday everyone
+everything everywhere evidence evil exact examine example exceed excellent except exchange excite
+exclude excuse execute exercise exhaust exhibit exile exist exit expand expect expense experience
+experiment expert explain explode exploit explore export expose express extend extent external extra
+extraordinary extreme eye fabric face facility fact factor factory fade fail faint fair faith fall
+false fame family famous fan fancy fantasy far farm fashion fast fat fatal fate father fault favor
+favorite fear feast feather feature federal fee feed feel fellow female fence ferry festival fetch
+fever few fiber fiction field fierce fifteen fifty fight figure file fill film filter final finance
+find fine finger finish fire firm first fish fist fit five fix flag flame flash flat flavor flee flesh
+flight float flood floor flour flow flower flu fluid flush fly foam focus fog fold folk follow fond
+food fool foot football force forecast foreign forest forever forgive fork form formal format former
+formula fort fortune forum forward foster found foundation fountain four fraction frame framework
+france frank fraud free freedom freeze french frequent fresh friend friendly fright frog from front
+frost frown frozen fruit fuel full fun function fund funeral funny fur furnace furniture further
+future gain galaxy gallery gallon gamble game gang gap garage garbage garden garlic gas gate gather
+gauge gaze gear gender gene general generate generous genius gentle gentleman genuine geography germ
+german gesture get ghost giant gift gigantic girl give glad glance glare glass gleam glide glimpse
+global globe gloom glory glove glow glue goal goat god gold golf good goodbye goods gorgeous gospel
+gossip govern gown grab grace grade gradual graduate grain grand grandfather grandmother grant grape
+graph grasp grass grateful grave gravity gray grease great greed green greet grid grief grin grind
+grip grocery gross ground group grow growth guarantee guard guess guest guidance guide guilt guilty
+guitar gulf gun gym habit habitat hair half hall halt hammer hand handful handle handsome hang happen
+happy harbor hard hardly hardware harm harmony harsh harvest haste hat hate haul have hawk hay hazard
+haze head headline health heap hear heart heat heaven heavy heel height helicopter hell hello helmet
+help hence herb herd here heritage hero herself hesitate hidden hide high highlight highway hill him
+himself hint hip hire historic history hit hobby hold hole holiday hollow holy home honest honey honor
+hook hope horizon horn horrible horror horse hospital host hostile hot hotel hour house household
+housing however hug huge human humble humor hundred hunger hungry hunt hurry hurt husband hut hybrid
+hydrogen hymn ice icon idea ideal identity idle idol ignore ill illegal illness illusion image imagine
+imitate immediate immense immigrant immune impact imperial implement imply import impose impress
+improve impulse inch include income increase incredible indeed independence index indicate individual
+indoor induce industrial industry infant infect infer infinite inflation influence inform ingredient
+inhabit inherit initial initiate inject injure ink inn inner innocent innovation input inquiry
+insect insert inside insight insist inspect inspire install instance instant instead instinct
+institute instruct instrument insult insurance intact integrate intellectual intelligence intend
+intense intention interact interest interfere interior internal internet interpret interrupt
+interval intervene interview intimate introduce invade invent invest investigate invite involve iron
+ironic irony island isolate issue item ivory jacket jail jam january japan jar jaw jazz jealous jeans
+jet jewel job join joint joke journal journey joy judge judgment juice july jump june jungle junior
+junk jury just justice justify keen keep kernel kettle key keyboard kick kid kidnap kidney kill kilo
+kind kindle king kingdom kiss kitchen kite knee kneel knife knight knit knob knock knot know knowledge
+lab label labor laboratory lace lack ladder lady lag lake lamb lamp land landscape lane language lap
+large laser last late laugh launch laundry law lawn lawyer lay layer lazy lead leader leaf league leak
+lean leap learn lease least leather leave lecture left leg legal legend legislation legitimate leisure
+lemon lend length lens leopard less lesson let letter level liability liberal liberty library license
+lid lie life lift light like likely limb limit line link lion lip liquid list listen literally literary
+literature litter little live liver load loan lobby local locate lock logic lonely long look loop loose
+lord lose loss lost lot loud love low loyal loyalty luck lucky luggage lump lunar lunch lung luxury
+machine mad magic magnet mail main maintain major make male mall manage manner manual manufacture many
+map marble march margin marine mark market marriage marry marsh mask mass massive master match mate
+material math matter mature maximum maybe mayor meadow meal mean meaning measure meat mechanic medal
+media medical medicine medium meet melody melon melt member memory mention menu mercy mere merge merit
+merry mess message metal meter method middle midnight might mild mile military milk mill million mind
+mine mineral minimum minister minor mint minute miracle mirror miss missile mission mist mistake mix
+mixture mobile mode model moderate modern modest modify moist moment money monitor monkey month mood
+moon moral more morning mortgage most mother motion motive motor mount mountain mourn mouse mouth move
+movie much mud mug multiple murder muscle museum mushroom music musician must mutual myself mystery
+myth nail naked name nap narrow nation native natural nature naughty navy near neat necessary neck
+need needle negative neglect negotiate neighbor neither nephew nerve nest net network neutral never
+nevertheless new news next nice niece night nine noble nobody nod noise nominal none noon nor normal
+north nose not note nothing notice notion noun novel november now nowhere nuclear number nurse nut
+object objective obligation observe obtain obvious occasion occupy occur ocean october odd odor off
+offend offer office official often oil okay old olive omit once one onion online only onto open opera
+operate opinion opponent opportunity oppose opposite option orange orbit orchard order ordinary organ
+organic organize origin ornament orphan other otherwise ought ounce our ours ourselves out outcome
+outdoor outer outfit outline output outside oven over overall overcome overlap overlook owe owl own
+owner oxygen pace pack package pact pad page pain paint pair palace pale palm pan panel panic paper
+parade paragraph parallel parcel pardon parent park parliament part partial participate particle
+particular partner party pass passage passenger passion passive past pasta paste pastry patch path
+patience patient pattern pause pave payment peace peak peanut pear pearl peasant peculiar pedal peel
+peer pen penalty pencil pendulum penetrate penguin peninsula pension people pepper per percent perfect
+perform perhaps period permit person personal personality persuade pest pet phase phenomenon philosophy
+phone photo phrase physical piano pick picnic picture pie piece pig pigeon pile pill pillow pilot pin
+pine pink pioneer pipe pistol pit pitch pity pizza place plain plan plane planet plant plastic plate
+platform play pleasant please pleasure plenty plot plug plunge plus pocket poem poet poetry point
+poison polar pole police policy polish polite political politics poll pollution pond pool poor pop
+popular population porch port portion portrait portray pose position positive possess possible post
+pot potato potential pound pour poverty powder power practice praise pray prayer preach precise predict
+prefer pregnant preliminary premise premium preparation prepare prescribe presence present preserve
+preside press pressure pretend pretty prevail prevent previous prey price pride priest primary prime
+prince princess principal principle print prior priority prison privacy private privilege prize
+probable problem proceed process proclaim produce product profession professor profile profit profound
+program progress prohibit project prominent promise promote prompt proof proper property prophet
+proportion proposal propose prospect protect protein protest proud prove provide province provoke
+psychology public publish pull pump punch punish pupil purchase pure purpose purse pursue push put
+puzzle pyramid quality quantity quarrel quarter queen quest question queue quick quiet quit quite
+quote rabbit race radar radiation radical radio radius rage rail railway rain rainbow raise rally
+random range rank rapid rare rat rate rather ratio rational raw ray razor reach react read ready real
+reality realize realm rear reason rebel recall receipt receive recent reception recipe recognize
+recommend record recover recruit reduce refer reflect reform refuse regard regime region register
+regret regular regulate reject relate relative relax release relevant reliable relief religion
+reluctant rely remain remark remedy remember remind remote remove render renew rent repair repeat
+replace reply report represent republic reputation request require rescue research resemble reserve
+reside resign resist resolve resort resource respect respond response responsibility rest restaurant
+restore restrict result resume retail retain retire retreat return reveal revenue reverse review
+revise revolution reward rhythm rib ribbon rice rich rid ride ridge ridiculous rifle right rigid ring
+riot rise risk ritual rival river road roast rob robot rock rocket rod role roll roman romantic roof
+room root rope rose rotate rough round route routine row royal rub rubber rude rug ruin rule rumor
+run rural rush sacred sacrifice sad saddle safe sail saint sake salad salary sale salmon salt same
+sample sand sandwich satellite satisfy sauce sausage save saving say scale scan scandal scare scatter
+scene schedule scheme scholar school science scientific scientist scope score scorn scout scrap scream
+screen screw script scroll sculpture sea seal search season seat second secret section sector secure
+seed seek seem segment seize seldom select self sell semester seminar senate send senior sense
+sensitive sentence separate september sequence series serious servant serve service session set settle
+seven several severe sew shade shadow shake shall shallow shame shape share shark sharp shatter shave
+sheep sheet shelf shell shelter shepherd shield shift shine ship shirt shock shoe shoot shop shore
+short shot shoulder shout shove show shower shrimp shrink shrug shut shy sibling sick side siege sigh
+sight sign signal significant silence silent silk silly silver similar simple sin since sincere sing
+single sink sir sister sit site situation six size skate sketch ski skill skin skip skirt skull sky
+slave sleep sleeve slice slide slight slim slip slope slot slow small smart smash smell smile smoke
+smooth snake snap sneak snow soap social society sock soft software soil solar soldier sole solid
+solve some somebody somehow someone something sometime sometimes somewhat somewhere son song soon
+sophisticated sore sorrow sorry sort soul sound soup sour source south space spare spark speak special
+species specific specimen spectacle spectator speech speed spell spend sphere spice spider spill spin
+spine spirit spit spite splash split spoil spoke sponge spoon sport spot spouse spray spread spring
+sprout spy square squeeze stab stability stable stack stadium staff stage stair stake stale stall
+stamp stance stand standard star stare start starve state statement station statue status stay steady
+steak steal steam steel steep steer stem step stereo stick stiff still stimulate sting stir stock
+stomach stone stool stop storage store storm story stove straight strain strand strange stranger
+strap strategy straw stream street strength stress stretch strict strike string strip stripe stroke
+stroll strong structure struggle stubborn student studio study stuff stumble stupid style subject
+submit subscribe subsequent substance substitute subtle suburb succeed success such sudden sue suffer
+sufficient sugar suggest suit suitable sulfur sum summer summit summon sun sunday sunny sunrise sunset
+superior supermarket supper supply support suppose supreme sure surface surgery surplus surprise
+surrender surround survey survival survive suspect suspend sustain swallow swan swap swear sweat sweep
+sweet swell swift swim swing switch sword symbol sympathy symphony symptom syndrome system table
+tablet tackle tactic tag tail tailor take tale talent talk tall tame tank tap tape target task taste
+tax taxi tea teach team tear tease technical technique technology teeth telephone telescope television
+tell temper temperature temple temporary tempt ten tend tendency tender tennis tense tent term terminal
+terrible territory terror test testify testimony text than thank theater theme themselves then theory
+therapy there therefore these they thick thief thin thing think third thirst thirteen thirty this
+thorough those though thought thousand thread threat three thrive throat throne through throughout
+throw thrust thumb thunder thus ticket tide tidy tie tiger tight tile till timber time tiny tip tire
+tired tissue title toast tobacco today toe together toilet token tolerance tolerate toll tomato tomb
+tomorrow ton tone tongue tonight too tool tooth top topic torch torn torture toss total touch tough
+tour tourist tournament toward towel tower town toy trace track trade tradition traffic tragedy trail
+train trait transfer transform transit translate transmit transport trap trash travel tray treasure
+treat treaty tree tremble tremendous trend trial triangle tribe tribute trick trigger trim trip triumph
+trivial troop trophy tropical trouble trousers truck true truly trunk trust truth try tube tunnel
+turkey turn twelve twenty twice twin twist two type typical ugly ultimate umbrella unable uncertain
+uncle under undergo underground understand undertake underwear undo unemployment unexpected unfair
+unfold unhappy uniform union unique unit unite unity universal universe university unknown unless
+unlike unlikely until unusual unveil upgrade uphold upstairs urban urge urgent us usage use useful
+useless user usual utility utilize utter vacation vacuum vague valid valley valuable value van vanish
+vanity vapor variable variety various vary vast vegetable vehicle veil vein velvet vendor venture
+verb verdict verge verify verse version vertical very vessel veteran via vibrate vice victim victory
+video view village vine vinegar violence violet violin virtue virus visa visible vision visit visual
+vital vitamin vivid vocabulary voice void volcano volume volunteer vote voyage wage wagon waist wait
+waiter wake walk wall wallet wander want war ward warehouse warm warn warning warrant warrior wash
+waste watch water wave wax way weak wealth weapon wear weary weather weave web wedding wedge weed week
+weekend weekly weep weigh weight weird welcome welfare well west wet whale what whatever wheat wheel
+when whenever where whereas wherever whether which while whisper white who whole whom whose why wide
+widow width wife wild will willing win wind window wine wing wink winner winter wipe wire wisdom wise
+wish wit witch with withdraw within without witness wolf woman wonder wonderful wood wooden wool word
+work worker world worm worry worse worship worst worth wound wrap wreck wrist write writer wrong yard
+yell yellow yes yesterday yet yield yoga you young your yours yourself youth zero zone zoo
+africa alabama alaska albania algeria amazon america amsterdam andorra angola antigua arabia arctic
+argentina arizona armenia asia athens atlanta australia austria babylon baghdad bahamas bahrain
+baltimore bangkok bangladesh barbados barcelona beijing beirut belarus belgium belgrade belize bengal
+berlin bermuda bhutan bolivia bordeaux boston brazil brisbane britain brooklyn brussels bucharest
+budapest buenos bulgaria burma cairo calcutta calgary california cambodia cameroon canada canberra
+caracas caribbean carolina casablanca chicago chile china colombia colorado columbus congo copenhagen
+croatia cuba cyprus czech dakota damascus delhi denmark detroit dublin ecuador edinburgh egypt
+england estonia ethiopia europe fiji finland flanders florida france frankfurt gabon geneva georgia
+germany ghana gibraltar greece greenland grenada guatemala guinea haiti hanoi harvard havana hawaii
+helsinki holland honduras honolulu houston hungary iceland idaho illinois india indiana indonesia
+iowa iran iraq ireland israel istanbul italy jamaica japan java jerusalem jordan jupiter kabul
+kansas kashmir kazakhstan kentucky kenya khartoum korea kuwait kyoto laos latvia lebanon liberia
+libya london louisiana luxembourg madagascar madrid maine malaysia maldives mali malta manchester
+manila manitoba morocco moscow montana montreal morocco mumbai munich nagoya nairobi nebraska
+nepal netherlands nevada newcastle nigeria nile nirvana normandy norway ohio oklahoma oman ontario
+oregon osaka ottawa oxford pakistan palestine panama paraguay paris pennsylvania persia peru
+philadelphia philippines phoenix poland portugal prague pretoria quebec queensland romania rome
+russia rwanda saigon samoa santiago sardinia saudi scotland seattle seoul serbia shanghai siberia
+sicily singapore slovakia slovenia somalia spain sri sudan suriname sweden switzerland sydney syria
+tahiti taiwan tajikistan tanzania tasmania tehran tennessee texas thailand tibet tokyo tonga
+toronto trinidad tunisia turkey turkmenistan uganda ukraine uruguay utah uzbekistan vancouver
+venezuela venice vermont vietnam virginia wales warsaw washington wellington wyoming yemen yugoslavia
+zambia zimbabwe
+algorithm alphabet ampere amplitude anchor android angular animation anode antenna aperture append
+archive arithmetic array assembly assertion async atom autopilot backend bandwidth banner batch
+benchmark binary bitmap boolean bootstrap buffer bug bytecache cache callback capacitor cartridge
+channel checksum cipher ciphertext clipboard clocking clone closure cluster codec codepoint collision
+compiler compress concatenate concurrency conditional constant constructor container context
+converter cookie coroutine coupling coverage crash cron crypt cryptography cursor daemon dashboard
+deadlock debug debugger declarative decode decompile decorator decrypt delegate delimiter deployment
+deprecation descriptor deserialize devops digest directive dispatcher distribution docker domain
+downgrade driver dump dynamic emulator encapsulation encode encoder encryption endpoint enumerable
+escalation eventloop exception executor expression extensible facade factory fallback fetch
+filesystem filter firmware flag flowchart framework function garbage gateway generator git github
+globals gradient graph greedy grid hardware hash hashing headless heap heartbeat heuristic hex
+hierarchy histogram hook hostname hotspot hydration hypervisor idempotent identifier immutable
+imperative import index inherit initialize inline instance instruction integer interpreter interrupt
+invariant iteration iterator json kernel keychain keyword lambda latency layout lexer library
+lifecycle linker lint listener literal lockfile logger loopback machine macro malloc manifest mapper
+marshal memoization memory menu merge mesh metadata method middleware migration mime mirror mnemonic
+mock model module monad monolith mutex namespace native neural node normalize npm null nullptr oauth
+object observable offline onboarding opcode operand operator optimizer orchestration overflow
+overload override packet padding pagination palette parallel parameter parser partition patch payload
+peer permission persist pipeline pixel placeholder platform plugin pointer polling polymorphism
+portal pragma precision predicate preprocessor primitive print priority process processor profile
+programmer projection promise prompt propagate protocol prototype proxy pseudo publish pull pulse
+puppet push quantum query queue race rack radix raft range raster reactive reactor reader readonly
+rebase recursion redundant refactor referential regex registry regression reify relay release
+remote render replica repository represent request resolver resource response restful retry reusable
+revert rewrite ringbuffer rollback router runtime sandbox scaffolding scheduler schema scope script
+scroll sdk segment semaphore serialize serverless session shader shard shell shim shortcut
+signature singleton sketch slicing slot snapshot socket solid source spawn specification spectrum
+spool stack stage stakeholder stamp state statement static stdin stdout storage stream string struct
+stub submodule subscribe subscript subroutine subsystem subtree sudo supervisor surface suspended
+swagger swap switch symbol syntax synthesis sysadmin syscall table tag tailgate target task team
+telemetry template tensor terminal testable texture thread threshold throttle throughput timezone
+token tombstone toolchain tooltip topology trace tracer track traffic transaction transcode
+transducer transfer transform transistor transition translate transpile traverse tree trigger
+truncate tunnel tuple tutorial typecheck typedef unicode unify unit unix upgrade upload upstream
+url user utility uuid validator variable vector vendor version vertex virtual visibility vm volume
+vulnerability wasm web webhook websocket widget wiki wildcard wire wireless worker workflow
+workload workspace wrapper xpath yaml zip zlib zone zoom
+apple apricot avocado banana blackberry blueberry boysenberry cantaloupe cherry coconut cranberry
+currant date dragonfruit durian elderberry fig gooseberry grape grapefruit guava honeydew huckleberry
+jackfruit kiwi kumquat lemon lime lychee mandarin mango mulberry nectarine olive orange papaya
+passionfruit peach pear persimmon pineapple plantain plum pomegranate quince raspberry starfruit
+strawberry tangelo tangerine watermelon
+artichoke asparagus avocado basil beetroot broccoli cabbage carrot cauliflower celery chard chickpea
+chili cilantro collard corn cucumber daikon dill eggplant endive fennel fenugreek garlic ginger
+horseradish jicama kale kohlrabi leek lentil lettuce mustard okra onion parsley parsnip pea peanut
+pepper potato pumpkin radicchio radish rhubarb rutabaga scallion shallot spinach squash tomato
+turnip wasabi watercress yam zucchini
+almond amaranth barley buckwheat cashew chestnut chia chickpea coconut couscous farro flax hazelnut
+hemp kamut macadamia millet oat pecan pistachio quinoa rice rye sesame sorghum spelt sunflower
+tahini teff triticale walnut wheat wildrice
+amber amethyst aquamarine azure beige black blond blue brown burgundy celadon cerulean charcoal
+chartreuse chocolate cobalt copper coral cream crimson cyan ebony ecru emerald fuchsia gold gray
+green hazel indigo ivory jade khaki lavender lilac lime magenta mahogany maroon mauve mint navy
+ochre olive orange orchid peach pearl pink plum purple red rose ruby russet saffron salmon sapphire
+scarlet sepia sienna silver slate tan taupe teal turquoise umber violet viridian white yellow
+admire adore affable affectionate agreeable amazing ambitious amiable amused analytical angelic
+animated appreciative attentive authentic benevolent blissful bold brave bright brilliant buoyant
+calm candid capable carefree careful caring cerebral charming cheerful chic chivalrous clever
+compassionate composed confident congenial conscientious considerate content convivial cool
+courageous courteous creative curious daring dashing dazzling debonair decisive dedicated delightful
+dependable determined devoted diligent diplomatic discerning discreet dynamic earnest easygoing
+ebullient eccentric educated efficient elegant eloquent empathetic energetic enlightened
+enthusiastic ethical exacting excellent exceptional exciting expert exuberant fair faithful fantastic
+fearless flexible focused forgiving forthright frank friendly frugal fun funny generous gentle
+genuine gifted giving graceful gracious gregarious grounded happy hardy harmonious helpful heroic
+honest honorable hopeful hospitable humble humorous idealistic imaginative impartial incisive
+independent industrious ingenious innovative insightful inspiring intelligent intuitive inventive
+jovial joyful jubilant judicious keen kind kindly knowledgeable laidback leaderly learned lighthearted
+lively logical lovable loyal lucid magnanimous mellow meticulous mindful modest moral motivated
+natural neat noble nonchalant nurturing objective observant open optimistic organized original
+outgoing passionate patient peaceful perceptive persevering persistent personable philosophical
+pioneering placid playful pleasant poised polished practical pragmatic precise principled proactive
+proficient profound progressive prompt proper prosperous protective prudent punctual quirky radiant
+rational receptive reflective relaxed reliable resilient resourceful respectful responsible
+responsive reverent romantic sagacious sane scholarly scrappy sedate selfless sensible sensitive
+sentimental serene sharp shrewd sincere skillful smart sociable solid soulful spirited spontaneous
+sprightly stable steadfast steady stoic straightforward strategic studious sturdy suave sublime
+subtle sunny supportive sweet sympathetic systematic tactful talented tenacious tender thoughtful
+thrifty tolerant tranquil trustworthy truthful unbiased understanding unflappable unique unselfish
+upbeat valiant versatile vigilant vigorous virtuous visionary vivacious warm welcoming whimsical
+wholesome wise witty youthful zealous
+achieve adjust admire advise analyze answer approve arrive ask assist attend balance bathe begin
+behave believe belong bend bless blink boast boil borrow bounce bow brake breathe breed brighten
+bring brush build burn buy calculate calm carry carve cast catch celebrate change chase chat cheer
+chew choose clap clean climb close collect comb combine come command compare compete complain
+complete compose compute conclude confess confirm connect consider construct consult continue
+contribute convince cook copy count cover crawl create cross cry cut dance decide declare decorate
+deliver demand describe deserve design desire destroy develop dig dine discover discuss dismiss
+divide donate doubt draw dream dress drink drive drop dry earn eat educate elect embrace employ
+encourage end enjoy enter entertain escape examine exchange excite excuse exercise exist expand
+expect explain explore express extend face fail fall fasten favor fear feed feel fetch fight fill
+find finish fish fix flee float flow fly fold follow forbid forget forgive form freeze gather gaze
+give glow govern grab greet grin grow guard guess guide hammer hand handle hang happen harvest hate
+heal hear heat help hide hit hold hop hope hug hunt hurry hurt ignore imagine imitate improve
+include increase inform inherit inject injure inquire inspire install invent invest invite iron
+jog join joke judge jump keep kick kiss kneel knit knock know laugh launch lay lead lean leap learn
+leave lend lift light listen live look lose love lower maintain make manage march marry measure
+meet melt mention mind miss mix mold move mow name nap navigate need nod notice obey observe obtain
+occur offer open operate order organize overcome owe own pack paint pardon participate pass pause
+pay peel perform permit persuade pick place plan plant play please plough pluck plug point polish
+ponder pour practice praise pray preach prepare present preserve press pretend prevent print
+proceed produce promise pronounce protect prove provide publish pull punch purchase push question
+quit race raise reach read realize rebuild recall receive recite recognize recommend record
+recover reduce refill reflect refuse regret rehearse reject relax release rely remain remember
+remind remove renew rent repair repeat replace reply report request rescue research resist rest
+restore retire return reveal reverse review revise reward ride ring rinse rise risk roast rock
+roll rub ruin rule run rush sail salute sample save say scan scare scatter scold scoop scrape
+scratch scream scrub seal search seat secure see seek seem seize select sell send separate serve
+set settle sew shake share sharpen shave shed shine shiver shop shout show shrink shrug shuffle
+shut sigh sign sing sink sip sit sketch skip slam sleep slice slide slip smell smile smoke snap
+sneeze sniff snow soak solve sort sow speak spell spend spill spin spit splash split spoil spray
+spread spring sprinkle sprint squeeze stack stand stare start starve stay steal steer stick sting
+stir stop store stretch stride strike stroll study stumble stun submit succeed suck suggest suit
+supply support suppose surprise survive swallow swap swear sweep swim swing switch take talk tame
+tap taste teach tear tease telephone tell tempt test thank thaw think threaten throw tickle tidy
+tie tip tire toast toss touch trace train translate travel treat tremble trim trip trot trust try
+tuck tumble turn twist type understand undo unfold unite unlock unpack unveil upgrade urge use
+value vanish vary visit voice volunteer vote wait wake walk wander want warm warn wash waste
+watch water wave weave weep weigh welcome whip whisper whistle win wind wink wipe wish wonder
+work worry wrap wreck write yell yield zoom
+"""
+
+REAL_WORDS_5000_B = """
+aardvark alpaca anteater antelope armadillo baboon badger bat bear beaver bison boar buffalo
+bull camel caribou cat cheetah chimpanzee chinchilla chipmunk cougar cow coyote deer dingo
+dolphin donkey dormouse elephant elk ermine ferret fox gazelle gerbil giraffe goat gopher
+gorilla groundhog hamster hare hedgehog hippopotamus horse hyena ibex jackal jaguar kangaroo
+koala lemming lemur leopard lion llama lynx manatee marmot marten meerkat mink mole mongoose
+monkey moose mouse mule muskrat ocelot okapi opossum orangutan otter ox panda panther pig
+platypus porcupine porpoise possum prairie puma rabbit raccoon ram rat reindeer rhinoceros
+seal sheep shrew skunk sloth squirrel tapir tiger vole walrus warthog weasel whale wolf
+wolverine wombat woodchuck yak zebra
+albatross blackbird bluebird bluejay buzzard canary cardinal cassowary chickadee chicken condor
+cormorant crane crow cuckoo dove duck eagle egret emu falcon finch flamingo goose goshawk
+grouse gull hawk heron hummingbird ibis jay kestrel kingfisher kiwi lark loon magpie mallard
+mockingbird nightingale nuthatch oriole osprey ostrich owl parakeet parrot partridge peacock
+pelican penguin pheasant pigeon puffin quail raven roadrunner robin rook seagull sparrow
+starling stork swallow swan swift tern toucan turkey vulture woodpecker wren
+anchovy angelfish barnacle bass clam cod coral crab crayfish cuttlefish eel flounder goldfish
+haddock halibut herring jellyfish kelp lobster mackerel marlin mussel octopus oyster perch pike
+plankton pollock prawn salmon sardine scallop shark shrimp squid starfish stingray sturgeon
+swordfish trout tuna urchin walleye
+ant aphid bee beetle bumblebee butterfly caterpillar centipede cicada cockroach cricket damselfly
+dragonfly earwig firefly flea fly gnat grasshopper hornet katydid ladybug locust louse mantis
+mayfly midge millipede mite mosquito moth scorpion silverfish spider tarantula termite tick wasp
+weevil
+alligator chameleon cobra crocodile frog gecko iguana lizard newt python rattlesnake salamander
+snake tadpole toad tortoise turtle viper
+acacia alder ash aspen banyan baobab beech birch bonsai boxwood cactus cedar cherry chestnut
+cypress dogwood ebony elm eucalyptus fern fir hawthorn hazel hemlock hickory holly ironwood ivy
+juniper larch laurel magnolia mahogany maple mangrove mesquite moss myrtle oak oleander palm
+pecan pine poplar redwood rosewood rowan sassafras sequoia spruce sycamore tamarind teak walnut
+willow yew
+aster azalea begonia bluebell buttercup camellia carnation chrysanthemum clematis crocus daffodil
+dahlia daisy dandelion delphinium foxglove freesia gardenia geranium gladiolus hibiscus hyacinth
+hydrangea iris jasmine lavender lilac lily lotus marigold narcissus orchid pansy peony petunia
+poinsettia poppy primrose snapdragon sunflower tulip violet wisteria zinnia
+accountant acrobat actuary admiral ambassador analyst anthropologist archaeologist architect
+archivist astronaut astronomer athlete auditor baker banker barber bartender biologist blacksmith
+botanist broadcaster builder butcher butler cabinetmaker captain carpenter cartographer cashier
+chemist chiropractor choreographer cobbler comedian composer conductor consultant contractor
+correspondent curator decorator dentist designer detective dietician diplomat drummer economist
+electrician engineer entrepreneur examiner farmer firefighter fisherman florist foreman gardener
+geologist glassblower goldsmith grocer guitarist hairdresser historian hunter illustrator
+inspector instructor interpreter inventor investigator janitor jeweler journalist lecturer
+librarian lifeguard linguist locksmith lumberjack magician manager mason mechanic merchant
+meteorologist midwife miner musician novelist nutritionist optician pharmacist philosopher
+photographer physician physicist pianist pilot plumber policeman politician porter preacher
+printer professor programmer psychiatrist publisher rancher receptionist reporter researcher
+sailor scientist sculptor secretary sergeant shoemaker singer surgeon surveyor tailor technician
+therapist translator tutor veterinarian violinist watchmaker welder zoologist
+archery athletics badminton bowling boxing cycling diving fencing gymnastics handball hockey judo
+karate lacrosse marathon polo racquetball rowing rugby sailing skateboarding skiing snowboarding
+softball squash surfing swimming taekwondo volleyball weightlifting wrestling
+accordion bagpipe banjo bassoon bell bongo bugle cello clarinet cymbal dulcimer fife flute gong
+harmonica harp harpsichord lute lyre mandolin oboe organ piccolo recorder saxophone sitar
+tambourine theremin trombone trumpet tuba ukulele vibraphone viola xylophone zither
+anvil axe awl bolt broach chisel clamp crowbar cutter drill file hatchet hacksaw hoe jack jigsaw
+lathe level mallet nail nut pickaxe plane pliers punch rake rasp rivet saw scissors screw
+screwdriver scythe shovel sickle spade staple tack tape tongs trowel vise wedge wrench
+apron ascot bandana belt beret blazer blouse bonnet boot bowtie bra bracelet brooch buckle cap
+cape cardigan cloak corset cravat cuff diaper dungarees earring gloves gown headband helmet hood
+hoodie jersey jumper kilt kimono laces leotard mittens necklace nightgown overalls pajamas parka
+poncho pouch pullover purse raincoat robe sandal sarong sash scarf shawl shorts slacks slippers
+sneakers sock stole stocking sweater swimsuit tights trousers tunic turban veil vest waistcoat
+wallet wristband zipper
+avalanche blizzard breeze cloudburst cyclone dew downpour drizzle drought earthquake flood fog
+frost gale hail haze hurricane lightning mist monsoon overcast rainbow sandstorm shower sleet
+slush smog snowflake storm sunlight sunrise sunset thunder tornado tsunami typhoon whirlwind
+abdomen ankle aorta appendix artery backbone bicep bladder blood bone brain breast calf capillary
+cartilage cheek chest chin cochlea colon cornea cranium ear elbow esophagus eyelash eyebrow
+eyelid femur finger foot forehead gallbladder gland groin gum hair hand heart heel hip intestine
+jaw joint kidney knee knuckle larynx leg ligament lip liver lung marrow muscle nail navel nerve
+nose nostril pancreas pelvis pharynx pupil retina rib scalp shoulder skeleton skin skull spine
+spleen stomach tendon thigh throat thumb thyroid toe tongue tonsil tooth torso trachea vein
+vertebra waist wrist
+allergy analgesic anesthesia antibiotic antidote antiseptic aspirin asthma biopsy bronchitis
+cataract chemotherapy cholera concussion cough diabetes diagnosis diarrhea dizziness dysentery
+eczema edema epidemic epilepsy fever flu fracture gastritis glaucoma headache hepatitis herpes
+hypertension immunity infection inflammation influenza injection insomnia insulin leukemia
+malaria measles migraine nausea obesity pandemic paralysis plague pneumonia polio prescription
+rabies rash recovery remedy sedative seizure smallpox sprain stroke surgery symptom syndrome
+tetanus therapy tuberculosis tumor vaccine virus wound
+affidavit alibi appeal arrest bailiff bankruptcy barrister bench brief charge claim client
+complaint counsel custody damages defendant defense deposition discovery docket evidence felony
+grievance hearing indictment injunction judgment jury lawsuit legal legislation liability
+litigation magistrate misdemeanor motion notary oath objection offense parole perjury petition
+plaintiff plea precedent probation prosecutor restitution ruling sentence settlement subpoena
+testimony tort trial verdict warrant witness
+airman ammunition armor arsenal artillery battalion battle bayonet brigade bullet cannon cavalry
+colonel combat commander company corps deployment division drill enemy ensign flank fort
+fortification garrison general grenade gunner infantry invasion lieutenant major marine missile
+munitions offensive patrol platoon private raid recruit regiment retreat rifle sabre siege sniper
+squad strategy tactic tank torpedo trench troop veteran victory warfare weapon
+anchor barge beacon berth bow brig buoy cabin canoe canvas capsize cargo catamaran compass crew
+cruise cutter deck dinghy dock ferry fleet freighter galley gangway gunwale harbor hatch helm
+jetty kayak keel knot lagoon launch lighthouse liner logbook mast mooring oar outrigger paddle
+pier plank pontoon port prow quay raft rigging rowboat rudder sail schooner sextant ship shoal
+skipper sloop starboard stern surf tack tender tug vessel voyage wharf yacht
+bake barbecue baste beat blend boil braise broil brown brush carve chill chop coat cream cube cut
+debone decorate dice dilute drain dredge drizzle dust fillet flake flour fold garnish glaze grate
+grease grill grind knead marinate mash melt mince mix parboil peel pickle pinch pipe pit poach
+pound puree reduce refresh roast saute scald score sear season shave sift simmer skim slice
+smoke soak spritz steam stew stir strain stuff sweat thicken toast toss truss whip whisk zest
+alcove arch attic balcony balustrade basement buttress ceiling chimney column colonnade corridor
+courtyard cupola dome doorway eave facade foyer gable gazebo hallway hearth lintel loggia mansard
+mezzanine minaret nave niche parapet patio pediment pergola pillar portico rotunda spire
+stairwell terrace threshold transom turret vault veranda vestibule
+acetate acid alkali alkane alkene alkyne alloy aluminum ammonia argon arsenic atom barium base
+beryllium bismuth boron bromine cadmium calcium carbon catalyst cation chlorine chromium cobalt
+compound copper corrosion crystal dilute distillation electron element emulsion enzyme ethanol
+fluoride gallium germanium glucose gold graphite helium hydrogen hydroxide iodine iridium iron
+isotope lanthanum lead lithium magnesium manganese mercury methane molecule molybdenum neon
+nickel nitrate nitrogen noble osmium oxidation oxygen palladium phosphate phosphorus platinum
+plutonium potassium precipitate propane protein radium radon reagent rubidium ruthenium salt
+scandium selenium silicon silver sodium solution solvent strontium sulfate sulfur tantalum
+technetium tellurium thallium tin titanium tungsten uranium vanadium xenon yttrium zinc
+zirconium
+abacus algebra angle apex arc area arithmetic asymmetry average axiom axis binomial calculus
+chord circumference coefficient combination conic constant coordinate cosine cube curve decimal
+denominator derivative diagonal diameter differential digit dimension divide divisor domain
+ellipse equation exponent factor factorial fraction function geometry graph hexagon hyperbola
+hypothesis integer integral intersect inverse irrational lemma limit logarithm matrix maximum
+median minimum minus modulus multiply numerator octagon oval parabola parallel parallelogram
+pentagon percentage perimeter permutation perpendicular plane polygon polynomial prime
+probability product proof proportion protractor pyramid quadrant quadratic quotient radian radius
+ratio rational rectangle rhombus root scalar sequence series sine slope solid sphere square
+subset subtract sum tangent tetrahedron theorem trapezoid triangle trigonometry vector velocity
+vertex volume
+aeon annum autumn dawn daybreak decade dusk epoch equinox fortnight hour instant interval midday
+midnight millennium minute moment month morning noon nightfall period quarter season second
+solstice spring summer twilight week weekend winter year
+admiration affection agony amusement anger angst anguish annoyance anticipation anxiety apathy
+apprehension awe bitterness bliss boredom calmness cheer comfort compassion contempt contentment
+courage craving curiosity delight depression desire despair disgust dread ecstasy elation
+embarrassment empathy enthusiasm envy euphoria excitement fear frustration fury gladness glee
+gratitude grief guilt happiness hatred homesickness hope horror hostility humility hurt
+indignation infatuation insecurity irritation jealousy joy loneliness longing love lust
+melancholy misery nostalgia optimism panic passion pessimism pity pleasure pride rage regret
+relief remorse resentment resignation sadness satisfaction serenity shame sorrow spite surprise
+suspense sympathy tension terror triumph unease wonder worry zeal
+abruptly absolutely accordingly accurately acutely adamantly additionally adequately admirably
+admittedly affectionately aggressively alternatively amazingly ambitiously angrily annually
+anxiously apparently appropriately approximately arrogantly assertively attentively automatically
+awfully barely basically beautifully bitterly blindly boldly bravely briefly brightly brilliantly
+busily calmly candidly carefully carelessly casually cautiously certainly cheerfully cleverly
+closely clumsily comfortably commonly compassionately completely confidently consequently
+considerably consistently constantly continually conveniently correctly courageously curiously
+currently daily dangerously deeply definitely deliberately delicately densely desperately
+diligently directly discreetly distinctly dramatically eagerly earnestly easily economically
+effectively efficiently elegantly eloquently emotionally energetically enormously entirely
+equally essentially eventually evidently exactly exceedingly excessively excitedly exclusively
+explicitly extremely faithfully famously fearlessly fiercely finally firmly fondly foolishly
+formally fortunately frankly frantically frequently frugally fully furiously generally generously
+gently gladly gleefully globally gracefully gradually gratefully greatly greedily happily hardly
+hastily heavily hesitantly honestly hopefully hospitably hourly humbly hurriedly immediately
+impatiently imperfectly implicitly improperly incidentally increasingly incredibly independently
+indirectly individually inevitably informally initially innocently instantly intensely
+intentionally intently interestingly internally invariably irritably joyfully joyously jubilantly
+justly keenly kindly largely lately lazily legally lightly likely literally logically loudly
+lovingly loyally luckily madly mainly manually marginally massively maturely mechanically
+mentally merrily methodically meticulously mildly mindfully miserably moderately modestly monthly
+morally mostly mysteriously naturally nearly neatly nervously newly nobly normally notably
+noticeably obediently obviously occasionally officially openly optimistically ordinarily
+originally painfully partially patiently peacefully perfectly permanently persistently personally
+physically playfully pleasantly politely poorly positively possibly potentially powerfully
+practically precisely predictably presently previously primarily privately probably
+professionally profoundly promptly properly proudly publicly punctually purely quickly quietly
+rapidly rarely rationally readily really reasonably recently recklessly regularly relatively
+reluctantly remarkably repeatedly reportedly resolutely respectfully richly rightly roughly
+routinely rudely sadly safely scarcely scientifically secretly securely seldom sensibly
+sensitively seriously sharply shortly shyly significantly silently similarly simply sincerely
+skillfully slowly smoothly softly solemnly sometimes soon soundly specifically speedily
+spiritually splendidly steadily sternly strangely strictly strongly stubbornly successfully
+suddenly sufficiently suitably surely surprisingly suspiciously swiftly sympathetically
+systematically tactfully temporarily tenderly terribly thankfully thoughtfully tightly timidly
+tolerantly totally traditionally tragically tranquilly truly typically ultimately unbelievably
+uncomfortably undoubtedly unexpectedly unfortunately uniquely universally unusually urgently
+usually utterly vaguely valiantly vastly verbally violently virtually visibly vividly voluntarily
+warmly weakly wearily weekly wholly wildly willingly wisely wonderfully worriedly yearly
+zealously
+abate abbreviate abdicate abduct abhor abide abolish abridge absolve abstain abstract abuse
+accelerate accentuate acclaim accommodate accompany accumulate accuse acquaint activate adapt
+adhere adjourn admonish adorn advocate affiliate affirm afflict aggravate agitate alienate align
+allege alleviate allocate allot allude alter amass amend amplify amuse annex annihilate annul
+anticipate applaud appraise apprehend approximate arbitrate arouse articulate ascertain aspire
+assemble assimilate assuage atone attest attribute augment authorize avert avoid await awaken
+baffle banish bargain batter beckon befriend begrudge belittle bemoan bequeath bereave beseech
+besiege bestow betray beware bewilder blaspheme blazon blunder bolster bombard brace brandish
+breach bribe broaden browse bruise budge bulge bungle burgeon burrow bustle cajole calibrate
+captivate castigate catalogue categorize cater caress cede cement censor chastise cherish chide
+chronicle circulate circumvent clarify classify cleanse cleave cling cloak coerce cogitate
+coincide collaborate collate collide commemorate commence commend commiserate commission commute
+compel compensate compile complement complicate compliment comport comprehend compress comprise
+concatenate concede conceive conceptualize conciliate concur condemn condense condone confer
+confide configure confine confiscate conflate conform confound congratulate conjure connote
+conquer consecrate conserve consign consolidate conspire constrain construe contemplate contend
+contort contradict contravene contrive converge converse convolve coordinate corroborate corrode
+counter counteract covet cower cringe critique crumple cultivate curb curtail dampen dangle dart
+daunt dazzle debase debate debilitate decapitate decay deceive decelerate decipher decode
+decompose decree decry dedicate deduce defame default defecate defer define deflate deflect
+deform defraud defray defuse defy degrade dehumidify dehydrate deify delegate delete deliberate
+delineate delude delve demean demolish demonstrate demote denote denounce dent depict deplete
+deplore deploy depose deprive deputize deride derive descend desecrate designate despise
+destabilize detach detain deteriorate detract devalue devastate deviate devise devolve devour
+dictate differentiate diffuse digest dilate diminish din disabuse disallow disapprove disarm
+disassemble disavow discard discern discharge disclaim disclose discolor discomfit disconnect
+discontinue discount discourage discredit discriminate disdain disembark disengage disentangle
+disfigure disgrace disgruntle disguise dishearten disinfect disintegrate disinter dislike
+dislocate dislodge dismantle dismay dismember disobey disorganize disorient dispatch dispel
+dispense disperse displace disprove dispute disqualify disregard disrobe disrupt dissect
+disseminate dissent dissipate dissociate dissolve dissuade distill distinguish distort distract
+distress distribute distrust disturb disunite divert divest divulge document dominate donate
+doodle dovetail doze dredge drench dribble drift droop drudge dub dwindle dye ease eavesdrop ebb
+eclipse economize edify efface eject elaborate elapse electrify elevate elicit elope elucidate
+elude emanate emancipate embark embellish embezzle embody embolden emboss emigrate emit emphasize
+employ empower emulate enable enact encase enchant encircle enclose encompass encounter encroach
+encrypt endeavor endorse endow endure energize enforce engender engrave engross engulf enhance
+enjoin enlighten enlist enliven enmesh enrage enrich enroll ensnare ensue ensure entail entangle
+enthrall entice entitle entomb entrap entreat entrench entrust enumerate envision epitomize
+equate equip eradicate erase erect erode erupt escalate escort espouse esteem estimate etch
+evade evaporate evict evoke evolve exacerbate exact exalt exasperate excavate exceed excel
+excerpt excise exclaim exclude excoriate excrete exculpate execrate exemplify exempt exert
+exhale exhume exonerate exorcise expand expatriate expel expend expiate expire explicate
+explode exploit expound expose expropriate expunge expurgate extenuate exterminate extinguish
+extol extort extract extrapolate exude exult fabricate facilitate factorize falsify falter
+familiarize fasten fathom fatigue fawn feign felicitate ferment fertilize fester fiddle filter
+finance flabbergast flail flare flatten flatter flaunt flavor flicker flinch flit flock flounder
+flourish flout fluctuate flutter foil foment forage forbear forearm foreclose forego foresee
+foreshadow forestall forfeit forge formulate forsake fortify foster founder fragment franchise
+fraternize fret frighten frolic frustrate fulfill fumble fumigate funnel furnish fuse gabble
+gallop galvanize garner gasp gesticulate giggle gird glance glare glaze glean glimmer glimpse
+glisten glitter glorify gloss glut gnaw goad gobble gorge grapple gratify gravitate graze grieve
+grimace grind groan groom grope grouse grovel growl grumble grunt gulp gush haggle halve hamper
+hanker harass harden harmonize harness harrow hasten hatch haul haunt hazard heave heckle heighten
+herald hesitate hijack hinder hinge hoard hoist holler hone hoodwink hoop hoot hover howl huddle
+hurl hurtle hush hustle hybridize hypnotize idealize ignite illuminate illustrate imagine imbibe
+imbue immerse immigrate immunize impair impale impart impede impel imperil impersonate implicate
+implore importune impose impoverish imprecate impregnate impress imprint imprison improvise
+impute inaugurate incinerate incise incite incline incorporate incriminate incubate inculcate
+incur indemnify indent indict indoctrinate induce indulge infect infest infiltrate inflame
+inflate inflict infringe infuse ingest inhale inhibit initiate inject injure inlay innovate
+inoculate inscribe inseminate insinuate inspect instigate instill insulate intensify intercept
+interchange intercede interject interlace interlock intermingle interpose interrogate intersect
+intersperse intertwine intimidate intone intoxicate intrench intrude inundate inveigh invert
+investigate invigorate invoke irk irrigate iterate jab jabber jangle jeer jeopardize jettison
+jingle jolt jostle jot jubilate juggle juxtapose keel kindle kowtow lace lag lament laminate
+languish lapse lash laud lavish leach lease legalize legislate legitimize lengthen lessen levy
+liberate license lighten limp linger liquefy lisp loathe lob lobby localize loiter loom loosen
+loot lubricate lug lull lumber lure lurk luxuriate magnify malign malinger mandate maneuver
+mangle manifest manipulate marinate maroon marshal marvel mask materialize maul meander mediate
+meditate meld mellow memorize menace mend merge mesh mesmerize migrate mime mimic mingle
+minimize mint mirror misappropriate misbehave miscalculate misdiagnose misdirect misfire misguide
+mishandle misinform misinterpret misjudge mislead misplace misprint misquote misread
+misrepresent misspell mistreat mistrust misuse mitigate moan mobilize mock modulate moisten mold
+mollify molt monopolize moor motivate motor mound mound mount mumble munch murmur muster mutate
+mutilate mutter nag narrate navigate neaten necessitate negate neglect negotiate nestle nibble
+niggle nip nominate normalize notch notify nudge nullify numb nurture obey obfuscate obligate
+oblige obliterate obscure obsess obstruct obtain obtrude obviate occupy offend officiate offset
+ogle ooze opine oppose oppress optimize orbit orchestrate ordain orient originate ornament
+oscillate oust outdo outgrow outlast outlive outmaneuver outnumber outpace outperform outrun
+outsell outshine outsmart outstrip outwit overawe overbear overburden overcharge overdo overeat
+overestimate overflow overhang overhaul overhear overheat overjoy overlap overload overpower
+overrate overreach override overrule oversee overshadow overshoot oversimplify oversleep
+overstate overstay overstep overtake overthrow overturn overvalue overwhelm overwork pacify
+package paddle padlock paginate pain palliate palpitate pamper pander paralyze parboil parch
+pardon pare parody parry parse partake participate partition paste patch patent patronize pattern
+pave pawn peck pedal peek peep penetrate perch percolate perfect perforate perfume peril perish
+permeate perpetuate perplex persecute persevere persist personalize personify pertain perturb
+peruse pervade pervert petition petrify philosophize photocopy photograph picket pilfer pillage
+pinch pique pitch pivot placate plagiarize plague plank plaster plat plead pledge plow pluck
+plumb plummet plunk ply poach poise polarize pollinate pollute ponder populate pore portend
+portion portray posit postulate pounce pout prance prattle precede precipitate preclude predate
+predict predispose predominate preen preface prefigure prefix preheat prejudge prejudice
+prelude premeditate premiere preoccupy prepare preponderate prepossess prepay prescribe preside
+pressure presume presuppose pretend prevail prevaricate preview prey prick prickle prime primp
+prioritize prise procrastinate procure prod profess proffer prognosticate proliferate prolong
+promenade promulgate propel prophesy propound proscribe prosecute prosper provoke prowl prune
+pry publicize pucker puff pulsate pulverize pummel puncture purge purify purport purvey putrefy
+quantify quarantine quash quaver quell quench query quibble quicken quiver quiz radiate rally
+ramble ramp ransack rant rap ratify ration rationalize rattle ravage rave ravel realign reap
+reappear rearrange reassemble reassert reassess reassign rebate rebuff rebuke recalibrate recant
+recap recapture recede recharge recidivate reciprocate recite reckon reclaim recline recompense
+reconcile reconsider reconstruct recount recoup recreate recruit rectify recuperate recur recycle
+redeem redefine redesign redirect rediscover redistribute redouble redound redress reek reel
+refashion refill refine refract refrain refresh refute regain regenerate regress rehash rehearse
+reimburse rein reinstate reiterate rejoice rejuvenate relapse relay relegate relent relinquish
+relish reload relocate remake remarry remedy reminisce remit remodel remonstrate remunerate
+renege renounce renovate reorder reorganize repeal repel repent rephrase replay replenish
+replicate repose repress reprimand reprint reproach reproduce reprove repudiate repulse
+requisition rescind resent reside resign resonate respire restart restate restrain restrict
+restructure resurrect retaliate retard reteach retort retract retrieve reunite revel revenge
+reverberate revere revert revile revive revoke revolt revolutionize revolve rhyme ridicule rig
+rinse riot ripen ripple rival rivet roam roar romp rotate rouse rove ruffle ruminate rummage
+rupture rustle sabotage sadden saddle safeguard salivate sally sanctify sanction sanitize sap
+sashay satiate satirize saturate saunter savage savor scamper scandalize scavenge scintillate
+scoff scoot scorch scour scout scowl scramble screech scribble scrimp scrounge scrutinize scuff
+sculpt scurry secede seclude secrete sedate seduce seep seethe sequester serenade sever shackle
+sharpen shatter shear sheathe shelve shepherd shirk shiver shred shriek shuck shudder shun shunt
+shutter sicken sidestep sift signify singe situate skew skid skim skirmish skulk slack slander
+slant slash slate slaughter slay sled sling slink slit slither slog slosh slouch slug slumber
+slump smack smear smite smolder smother smudge smuggle snag snarl snatch sneer snip snooze
+snore snort snub snuff soar sober socialize soften solder solicit solidify soothe sough sow span
+sparkle spatter spawn specialize specify speckle speculate spew spike spiral splash splatter
+splay splice splinter sponsor spook spool spout sprain sprawl sprig sprinkle sprout spruce spur
+spurn sputter squabble squander squat squawk squeak squeal squelch squint squirm squirt
+stabilize stagger stagnate stain stammer stampede standardize startle stash stave steady stencil
+stereotype sterilize stifle stimulate stipulate stitch stoke stomp stoop stow straddle straggle
+straighten strangle strategize stray streak strengthen strew stride strive strut stub stupefy
+stutter subdue submerge subordinate subside subsidize subsist substantiate subsume subvert
+succor succumb suffice suffocate sulk sully summarize summon sup supercharge supersede supervise
+supplant supplement supplicate suppress surge surmise surmount surpass surrender survey survive
+suspect suspend sustain swamp swat sway sweat sweeten swelter swerve swindle swirl swoop
+symbolize sympathize synchronize syndicate synthesize systematize tabulate taint tally tamper
+tang tangle tarnish tarry tattle taunt telegraph televise temper tender terminate terrify
+testify thicken thirst thrash thrill throb throng thwart tickle tidy tighten tilt tinker tint
+tolerate toil toll toot topple torment torture totter toughen tout tow tower toy trace track
+trade trail trample transact transcend transcribe transgress transmit transmute transpire
+transplant transpose traverse travesty tread treble tremble trench trespass trickle trifle trim
+triple trivialize trounce trudge trump truncate tuck tug tune tussle twinkle twirl twitch typify
+tyrannize unarm unbend unbind unbolt unburden unbutton uncap unchain unclasp uncoil uncover
+uncross undress undulate unfasten unfurl unhinge unify unlace unleash unload unmask unpack
+unplug unravel unroll unseat unsettle untangle untie unwind unwrap upbraid update upend uphold
+uproot upset usher usurp utilize utter vacate vacillate validate valorize vandalize vanquish
+vaporize vault veer vend veneer venerate venture verbalize verify vex vibrate victimize vie
+vilify vindicate violate visualize vitiate vivify vocalize vouch vouchsafe vow vulgarize wade
+waffle waft wag wage wager wail waive wallow waltz wane warble ward warp waver wax weaken wean
+weary weather wedge weed welcome weld welter wend whack wheedle wheel wheeze whet whimper whine
+whirl whisk whiten whittle widen wield wiggle wilt wince wink winnow wipe wire wither withhold
+withstand wobble woo wrangle wreak wrench wrest wrestle wriggle wring wrinkle writhe yank yawn
+yearn yodel zap zero zip
+abidjan abuja accra addis adelaide algiers amman ankara antananarivo apia ashgabat asmara
+asuncion auckland baku bamako bandar bangui banjul basseterre belfast belmopan bergen bern
+bilbao bishkek bissau bogota bratislava brasilia brazzaville bridgetown brisbane bucharest
+budapest bujumbura canberra caracas cardiff castries chisinau conakry copenhagen cotonou dakar
+damascus dhaka djibouti dodoma doha dublin dushanbe edinburgh freetown funafuti gaborone
+georgetown guatemala hanoi harare havana helsinki honiara islamabad jakarta jerusalem juba
+kabul kampala kathmandu khartoum kigali kingston kingstown kinshasa kuala kuwait kyiv libreville
+lilongwe lima lisbon ljubljana lome luanda lusaka madrid majuro malabo male managua manama
+manila maputo maseru mascat mbabane melekeok mexico minsk mogadishu monaco monrovia montevideo
+moroni muscat nairobi naypyidaw ndjamena niamey nicosia nouakchott nukualofa oslo ottawa
+ouagadougou palikir panama paramaribo paris phnom podgorica porto prague praia pretoria
+pyongyang quito rabat reykjavik riga riyadh rome roseau santiago santo sarajevo seoul singapore
+skopje sofia stockholm succo suva taipei tallinn tarawa tashkent tbilisi tegucigalpa tehran
+thimphu tirana tokyo tripoli tunis ulaanbaatar vaduz valletta vatican victoria vienna vientiane
+vilnius warsaw wellington windhoek yamoussoukro yaounde yaren yerevan zagreb zimbabwe
+"""
+
+# ==================================================================
+# ★ LOAD EXTERNAL BATCHES C..J from ./word_batches/batch_X.txt
+# ==================================================================
+WORD_BATCH_DIR = "word_batches"
+EXTERNAL_BATCH_LETTERS = ["C", "D", "E", "F", "G", "H", "I", "J"]
+
+def _load_external_batches():
+    """Load word_batches/batch_C.txt .. batch_J.txt if present."""
+    loaded = {}
+    if not os.path.isdir(WORD_BATCH_DIR):
+        return loaded
+    for letter in EXTERNAL_BATCH_LETTERS:
+        path = os.path.join(WORD_BATCH_DIR, f"batch_{letter}.txt")
+        if not os.path.isfile(path):
+            continue
+        try:
+            with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                loaded[letter] = f.read()
+            print(f"  Loaded word batch {letter}: {path}")
+        except Exception as e:
+            print(f"  Failed to load {path}: {e}")
+    return loaded
+
+_EXTERNAL = _load_external_batches()
+
+# Build the tuple of all available batches
+ALL_REAL_WORD_BATCHES = [REAL_WORDS_5000, REAL_WORDS_5000_B]
+for _letter in EXTERNAL_BATCH_LETTERS:
+    if _letter in _EXTERNAL:
+        ALL_REAL_WORD_BATCHES.append(_EXTERNAL[_letter])
+ALL_REAL_WORD_BATCHES = tuple(ALL_REAL_WORD_BATCHES)
+
+print(f"Word batches available: {len(ALL_REAL_WORD_BATCHES)} "
+      f"(A, B embedded; {len(_EXTERNAL)} external)")
+
+# ==================================================================
+# Dictionary builder
+# ==================================================================
 def download_12_dictionaries():
     if not os.path.exists(DICT_DIR):
         try: os.makedirs(DICT_DIR)
@@ -248,6 +1009,15 @@ def build_real_dictionary(try_download=True):
     except Exception:
         print("  Not available")
 
+    print(f"\nStep 4b: Built-in REAL_WORDS batches ({len(ALL_REAL_WORD_BATCHES)} blobs) — always on")
+    real_extra = set()
+    for blob in ALL_REAL_WORD_BATCHES:
+        real_extra |= {w.lower() for w in blob.split() if w.isalpha() and 1 <= len(w) <= 64}
+    before = len(words)
+    words |= real_extra
+    print(f"  Added {len(real_extra):,} hard-coded words "
+          f"({len(words) - before:,} new). Total: {len(words):,}")
+
     if len(words) < 100:
         print("\nStep 5: AI-generated fallback (minimal)")
         words |= _build_ai_dictionary()
@@ -294,6 +1064,9 @@ def _build_ai_dictionary():
               "nine","ten","eleven","twelve","twenty","thirty","forty","fifty",
               "hundred","thousand","million","billion"]:
         words.add(n); words.add(n + "th")
+    # ★ Merge in ALL available hard-coded real-word batches
+    for blob in ALL_REAL_WORD_BATCHES:
+        words |= {w.lower() for w in blob.split() if w.isalpha() and 1 <= len(w) <= 64}
     return words
 
 # ============================ CONSTANTS ============================
