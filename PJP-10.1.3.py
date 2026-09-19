@@ -1892,7 +1892,8 @@ class UnifiedCompressor:
     def _unwrap_and_check(self, blob):
         if not blob.startswith(MAGIC): raise IntegrityError("Not PJP4.")
         if len(blob) < HEADER_LEN: raise IntegrityError("Truncated PJP4.")
-        return blob[MAGIC_LEN:HASH_LEN], blob[HEADER_LEN:]
+        # FIX: extract exactly HASH_LEN bytes (32), not [4:32] which is only 28 bytes
+        return blob[MAGIC_LEN:MAGIC_LEN + HASH_LEN], blob[HEADER_LEN:]
 
     def _atomic_write(self, path, data):
         d = os.path.dirname(path) or '.'
