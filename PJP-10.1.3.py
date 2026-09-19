@@ -1,21 +1,22 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Unified PAQJP+PJP — .a1-.a256 + .b1-.b256 (each .bN is 1 byte smaller)
+Unified PAQJP+PJP — One-Winner Tournament (LZMA + stripped flags + 8B hash)
 ================================================================
-Method A → input.pjp2 : 256 transforms + PAQ/Zstd/Brotli (raw)
-Method B → input.pjp3 : 256 transforms + LZH + SHA-256 (PJP4 magic)
-Method C → input.a1 .. input.a256 : one file per transform, [flag][data]
-Method D → input.b1 .. input.b256 : same as .aN but flag byte REMOVED
-                                    (zstd implied) → exactly 1 byte
-                                    SMALLER than the .aN twin.
+Method A → input.pjp2 : 256 transforms + best backend (raw)
+Method B → input.pjp3 : 256 transforms + LZH + 8-byte SHA-256 tag
+Method C → input.aN   : transform #N + [flag][backend payload]
+Method D → input.bN   : same as .aN but zstd flag stripped   (-1 byte)
+Method E → input.cN   : same as .aN but paq   flag stripped  (-1 byte)
+Method F → input.dN   : same as .aN but brotli flag stripped (-1 byte)
+Method G → input.eN   : same as .aN but lzma  flag stripped  (-1 byte)
 
-★ COMPRESS evaluates ALL candidates, keeps ONLY THE SINGLE SMALLEST
-  file, and deletes everything else.  You end up with exactly 1 file.
+★ COMPRESS evaluates ALL candidates in RAM, keeps ONLY the single
+  SMALLEST file, and deletes every other potential output.
 """
 
 import math, random, decimal, hashlib, base64, heapq, struct, os, tempfile
-import re, sys, subprocess, importlib, time, urllib.request, site
+import re, sys, subprocess, importlib, time, urllib.request, site, lzma
 from typing import Optional, List, Tuple, Dict, Callable, Any
 from collections import Counter
 
@@ -30,6 +31,7 @@ except ImportError:
 USE_QUANTUM = False
 HAS_QISKIT = False
 HAS_ZSTD = False
+HAS_LZMA = True   # Python stdlib
 
 def _try_import_zstd():
     try:
@@ -79,6 +81,7 @@ zstd_cctx = zstd.ZstdCompressor(level=22)
 zstd_dctx = zstd.ZstdDecompressor()
 HAS_ZSTD = True
 print("zstandard loaded successfully.")
+print("lzma (stdlib) available:", HAS_LZMA)
 
 def install_package(pkg):
     print(f"Installing {pkg}...")
@@ -114,13 +117,12 @@ if input("Option 2: Install paq + brotli? (y/n) [y]: ").strip().lower() != 'n':
     except ImportError: brotli = None; HAS_BROTLI = False
 else: print("Skipping paq + brotli.")
 
-print(f"\nBackends: zstd=Y paq={'Y' if paq else 'N'} brotli={'Y' if HAS_BROTLI else 'N'}")
+print(f"\nBackends: zstd=Y lzma=Y paq={'Y' if paq else 'N'} brotli={'Y' if HAS_BROTLI else 'N'}")
 
-PROGNAME = "UnifiedPAQJP+PJP (One Winner + .aN + .bN-1byte + 12 Downloads)"
+PROGNAME = "UnifiedPAQJP+PJP (One Winner, LZMA, stripped .c/.d/.e, 8B hash)"
 
 # ============================ DICTIONARY ============================
 DICT_DIR = "Dictionaries"
-COMBINED_DICTIONARY_FILE = os.path.join(DICT_DIR, "dictionary_combined.txt")
 
 DICTIONARY_FILES = [
     "generated.txt", "eng_news_2005_1M-sentences.txt", "eng_news_2005_1M-words.txt",
@@ -426,7 +428,7 @@ def mod_inv(a, m):
 
 MAGIC = b'PJP4'
 MAGIC_LEN = 4
-HASH_LEN = 32
+HASH_LEN = 8          # ★ truncated SHA-256 tag (was 32)
 HEADER_LEN = MAGIC_LEN + HASH_LEN
 
 # ============================ COMPRESSOR ============================
@@ -1319,6 +1321,9 @@ class UnifiedCompressor:
         if HAS_BROTLI:
             try: cands.append((3, brotli.compress(data, quality=11)))
             except Exception: pass
+        if HAS_LZMA:
+            try: cands.append((4, lzma.compress(data, preset=9 | lzma.PRESET_EXTREME)))
+            except Exception: pass
         cands.append((0, data))
         bf, bd = min(cands, key=lambda x: len(x[1]))
         return bytes([bf]) + bd
@@ -1329,6 +1334,7 @@ class UnifiedCompressor:
         if f == 1: return zstd_dctx.decompress(p)
         if f == 2 and paq is not None: return paq.decompress(p)
         if f == 3 and HAS_BROTLI: return brotli.decompress(p)
+        if f == 4 and HAS_LZMA: return lzma.decompress(p)
         raise TransformError(f"bkf {f}")
 
     def _paqjp_t28(self, data):
@@ -1655,9 +1661,14 @@ class UnifiedCompressor:
             return 3, (256 + data[1] * 256 + data[2],)
         return 0, ()
 
+    # ---------------- Backend with flag ----------------
+    #  flag 0 = raw           (no wrapper)
+    #  flag 1 = zstd          (magic stripped)
+    #  flag 2 = paq           (full output)
+    #  flag 3 = paq short     (header trimmed)
+    #  flag 4 = brotli
+    #  flag 5 = LZMA          (preset 9e, raw stream)   ← NEW
     def _compress_backend(self, data):
-        """Returns bytes = [flag] + payload.  Flag: 0=raw, 1=zstd, 2=paq,
-        3=paq-short, 4=brotli."""
         cands = [(0, data)]
         try:
             c = zstd_cctx.compress(data)
@@ -1675,8 +1686,12 @@ class UnifiedCompressor:
         if HAS_BROTLI:
             try: cands.append((4, brotli.compress(data, quality=11)))
             except Exception: pass
+        if HAS_LZMA:
+            try: cands.append((5, lzma.compress(data, preset=9 | lzma.PRESET_EXTREME)))
+            except Exception: pass
         bf, bd = min(cands, key=lambda x: len(x[1]))
         return bytes([bf]) + bd
+
     def _decompress_backend(self, data):
         if len(data) < 1: return None
         f = data[0]; p = data[1:]
@@ -1692,6 +1707,9 @@ class UnifiedCompressor:
             except Exception: return None
         if f == 4 and HAS_BROTLI:
             try: return brotli.decompress(p)
+            except Exception: return None
+        if f == 5 and HAS_LZMA:
+            try: return lzma.decompress(p)
             except Exception: return None
         return None
 
@@ -1887,12 +1905,13 @@ class UnifiedCompressor:
         for t in reversed(seq): r = self.rev_transforms[t](r)
         return r
 
+    # 8-byte truncated SHA-256 tag (was 32 bytes)
     def _wrap_with_hash(self, payload, original):
-        return MAGIC + hashlib.sha256(original).digest() + payload
+        return MAGIC + hashlib.sha256(original).digest()[:HASH_LEN] + payload
     def _unwrap_and_check(self, blob):
         if not blob.startswith(MAGIC): raise IntegrityError("Not PJP4.")
         if len(blob) < HEADER_LEN: raise IntegrityError("Truncated PJP4.")
-        # FIX: extract exactly HASH_LEN bytes (32), not [4:32] which is only 28 bytes
+        # FIX: correct slice so exactly HASH_LEN bytes are extracted
         return blob[MAGIC_LEN:MAGIC_LEN + HASH_LEN], blob[HEADER_LEN:]
 
     def _atomic_write(self, path, data):
@@ -1903,15 +1922,7 @@ class UnifiedCompressor:
         os.replace(tmp, path)
 
     # ================================================================
-    # ★  TOURNAMENT OF ALL CANDIDATES  →  EXACTLY ONE FILE SURVIVES
-    # ================================================================
-    # Candidates (all evaluated in RAM, only the SMALLEST written):
-    #   .a1 … .a256  : 256 candidates ([flag][backend payload])
-    #   .b1 … .b256  : up to 256 candidates (zstd-only, flag stripped
-    #                   → each is EXACTLY 1 byte smaller than its .aN)
-    #   .pjp2        : 1 candidate (raw pipeline)
-    #   .pjp3        : 1 candidate (LZH + SHA-256 wrapper)
-    # Winner = absolute smallest.  All 257+ others are discarded.
+    # ★  ONE-WINNER TOURNAMENT
     # ================================================================
     def compress_file_dual(self, infile, time_limit=None):
         try:
@@ -1923,35 +1934,55 @@ class UnifiedCompressor:
         print("=" * 64)
         print("Evaluating candidates:")
         print("   .a1 … .a256   (transform + [flag][data])")
-        print("   .b1 … .b256   (transform + zstd data only, -1 byte vs .aN)")
+        print("   .b1 … .b256   (zstd-only, flag stripped,   -1 byte vs .aN)")
+        print("   .c1 … .c256   (paq-only,  flag stripped,   -1 byte vs .aN)")
+        print("   .d1 … .d256   (brotli-only, flag stripped, -1 byte vs .aN)")
+        print("   .e1 … .e256   (lzma-only, flag stripped,   -1 byte vs .aN)")
         print("   .pjp2         (raw pipeline)")
-        print("   .pjp3         (LZH + SHA-256)")
+        print("   .pjp3         (LZH + 8-byte SHA-256 tag)")
         print("Exactly ONE smallest file will be kept.\n")
 
         candidates = []
 
-        # ---------- .aN + .bN sweep ----------
+        # ---------- .aN + stripped twins ----------
         st_a = time.time()
-        a_count = 0; b_count = 0
+        counts = {"a":0, "b":0, "c":0, "d":0, "e":0}
         for t in range(1, 257):
             try:
                 tr = self.fwd_transforms[t](data)
                 if not self._verify_lossless(data, tr, self.rev_transforms[t]):
                     continue
-                payload_a = self._compress_backend(tr)         # [flag] + data
+                payload_a = self._compress_backend(tr)     # [flag] + data
                 candidates.append((f".a{t}", payload_a, f"transform #{t}"))
-                a_count += 1
-                # If zstd won inside _compress_backend, flag == 1.
-                # .bN strips that flag → exactly 1 byte smaller than .aN.
-                if payload_a[0] == 1:
-                    payload_b = payload_a[1:]
-                    candidates.append((f".b{t}", payload_b,
+                counts["a"] += 1
+                flag = payload_a[0]
+                body = payload_a[1:]
+                if flag == 1:                               # zstd
+                    candidates.append((f".b{t}", body,
                                        f"transform #{t} (zstd, -1 byte)"))
-                    b_count += 1
+                    counts["b"] += 1
+                elif flag in (2, 3):                        # paq (full or short)
+                    # Store full paq output for .cN so decompress is unambiguous
+                    try:
+                        full = paq.compress(tr) if paq is not None else body
+                        candidates.append((f".c{t}", full,
+                                           f"transform #{t} (paq, -1 byte)"))
+                        counts["c"] += 1
+                    except Exception:
+                        pass
+                elif flag == 4:                             # brotli
+                    candidates.append((f".d{t}", body,
+                                       f"transform #{t} (brotli, -1 byte)"))
+                    counts["d"] += 1
+                elif flag == 5:                             # lzma
+                    candidates.append((f".e{t}", body,
+                                       f"transform #{t} (lzma, -1 byte)"))
+                    counts["e"] += 1
             except Exception:
                 continue
-        print(f"  .a1-.a256 : {a_count} candidates")
-        print(f"  .b1-.b256 : {b_count} candidates (each 1 byte smaller)")
+        print(f"  .aN : {counts['a']:>4}   .bN: {counts['b']:>4}   "
+              f".cN: {counts['c']:>4}   .dN: {counts['d']:>4}   "
+              f".eN: {counts['e']:>4}")
         print(f"  sweep time: {time.time() - st_a:.2f}s")
 
         # ---------- .pjp2 ----------
@@ -1967,13 +1998,13 @@ class UnifiedCompressor:
             print(f"    Failed: {e}")
 
         # ---------- .pjp3 ----------
-        print("  .pjp3 (LZH + SHA-256) computing...")
+        print("  .pjp3 (LZH + 8B SHA-256) computing...")
         try:
             payload_b = self._lzh_pipeline(data, time_limit)
             check_b = self._decompress_lzh_pipeline(payload_b)
             if check_b == data:
                 wrapped_b = self._wrap_with_hash(payload_b, data)
-                candidates.append((".pjp3", wrapped_b, "LZH + SHA-256"))
+                candidates.append((".pjp3", wrapped_b, "LZH + 8B SHA-256"))
             else:
                 print("    REFUSED: verify failed.")
         except Exception as e:
@@ -1983,16 +2014,15 @@ class UnifiedCompressor:
             print("\nNo valid candidates produced. Nothing written.")
             return
 
-        # ---------- Rank & pick the absolute winner ----------
         ranked = sorted(candidates, key=lambda x: len(x[1]))
         best_ext, best_payload, best_label = ranked[0]
         best_size = len(best_payload)
 
-        # ---------- Delete ANY pre-existing outputs for this input ----------
+        # Delete ALL pre-existing outputs for this input
         removed = 0
         for t in range(1, 257):
-            for suffix in (f".a{t}", f".b{t}"):
-                p = infile + suffix
+            for tag in ("a", "b", "c", "d", "e"):
+                p = f"{infile}.{tag}{t}"
                 if os.path.exists(p):
                     try: os.remove(p); removed += 1
                     except Exception: pass
@@ -2004,14 +2034,12 @@ class UnifiedCompressor:
         if removed:
             print(f"  Removed {removed} stale output file(s).")
 
-        # ---------- Write ONLY the winner ----------
         outpath = infile + best_ext
         try:
             self._atomic_write(outpath, best_payload)
         except Exception as e:
             print(f"Error writing winner: {e}"); return
 
-        # ---------- Report ----------
         print("\n" + "=" * 64)
         print(f"Evaluated {len(candidates)} candidates. "
               f"Kept 1, discarded {len(candidates) - 1}.")
@@ -2033,38 +2061,46 @@ class UnifiedCompressor:
                       f"(+{diff} vs winner)  {label}")
 
     # ================================================================
-    #  Decompression — .aN, .bN, .pjp2, .pjp3
+    #  Decompression
     # ================================================================
     def decompress_file(self, infile, outfile=""):
-        # --- .bN (zstd-only, flag stripped) ---
-        m = re.search(r'\.b(\d+)$', infile, flags=re.IGNORECASE)
-        if m:
+        # --- stripped twins .bN / .cN / .dN / .eN ---
+        for tag, backend_name, decoder in (
+            ("b", "zstd",   lambda blob: zstd_dctx.decompress(b'\x28\xb5\x2f\xfd' + blob)),
+            ("c", "paq",    lambda blob: paq.decompress(blob) if paq is not None else None),
+            ("d", "brotli", lambda blob: brotli.decompress(blob) if HAS_BROTLI else None),
+            ("e", "lzma",   lambda blob: lzma.decompress(blob) if HAS_LZMA else None),
+        ):
+            m = re.search(rf'\.{tag}(\d+)$', infile, flags=re.IGNORECASE)
+            if not m: continue
             tnum = int(m.group(1))
             if not (1 <= tnum <= 256):
-                print(f"Invalid transform in .bN name: {tnum}"); return False
+                print(f"Invalid transform in .{tag}N name: {tnum}"); return False
             try:
                 with open(infile, 'rb') as f: blob = f.read()
             except Exception as e:
                 print(f"Error reading: {e}"); return False
-            print(f"Format: .b{tnum} (zstd-only, flag byte removed)")
+            print(f"Format: .{tag}{tnum} ({backend_name}-only, flag byte removed)")
             try:
-                r = zstd_dctx.decompress(b'\x28\xb5\x2f\xfd' + blob)
+                r = decoder(blob)
             except Exception as e:
-                print(f"zstd decode failed: {e}"); return False
+                print(f"{backend_name} decode failed: {e}"); return False
+            if r is None:
+                print(f"{backend_name} decoder unavailable"); return False
             try:
                 original = self.rev_transforms[tnum](r)
             except Exception as e:
                 print(f"Reverse transform {tnum} failed: {e}"); return False
             if not outfile:
                 base = os.path.basename(infile)
-                outfile = re.sub(r'\.b\d+$', '', base, flags=re.IGNORECASE)
+                outfile = re.sub(rf'\.{tag}\d+$', '', base, flags=re.IGNORECASE)
             try: self._atomic_write(outfile, original)
             except Exception as e:
                 print(f"Write failed: {e}"); return False
             print(f"Decompressed → {outfile} ({len(original)} bytes)")
             return True
 
-        # --- .aN (with flag byte) ---
+        # --- .aN ---
         m = re.search(r'\.a(\d+)$', infile, flags=re.IGNORECASE)
         if m:
             tnum = int(m.group(1))
@@ -2110,13 +2146,13 @@ class UnifiedCompressor:
             if original is None:
                 try: original, _ = self._decompress_auto(payload)
                 except Exception as e: print(f"Decompression failed: {e}"); return False
-            actual_hash = hashlib.sha256(original).digest()
+            actual_hash = hashlib.sha256(original).digest()[:HASH_LEN]
             if actual_hash != expected_hash:
                 print("★★★ INTEGRITY FAILURE ★★★")
                 print(f"  Expected: {expected_hash.hex()}")
                 print(f"  Actual:   {actual_hash.hex()}")
                 return False
-            print(f"  SHA-256 verified: {actual_hash.hex()[:32]}…")
+            print(f"  8-byte SHA-256 tag verified: {actual_hash.hex()}")
         else:
             print("Format: raw payload (.pjp2)")
             try:
@@ -2172,65 +2208,86 @@ class UnifiedCompressor:
             if dc != d: print("  FAIL LZH"); return False
             print(f"  PASS LZH ({len(d)} → {len(c)})")
         except Exception as e: print(f"  Fail LZH: {e}"); return False
-        print("\nHash wrapper test...")
+
+        print("\n8-byte hash wrapper test...")
         try:
             sample = b"hello world"
             wrapped = self._wrap_with_hash(b"PAYLOAD", sample)
             expected, payload = self._unwrap_and_check(wrapped)
             if payload != b"PAYLOAD": raise AssertionError("payload")
-            if hashlib.sha256(sample).digest() != expected: raise AssertionError("hash")
-            print("  PASS hash wrapper")
+            if len(expected) != HASH_LEN: raise AssertionError("hash len")
+            if hashlib.sha256(sample).digest()[:HASH_LEN] != expected:
+                raise AssertionError("hash")
+            print(f"  PASS hash wrapper (tag = {HASH_LEN} bytes)")
         except Exception as e: print(f"  FAIL: {e}"); return False
-        print("\n.aN round-trip test...")
+
+        print("\nLZMA backend test...")
         try:
-            for t in (1, 17, 33, 45, 100, 200, 256):
-                d0 = b"The quick brown fox jumps over the lazy dog. " * 4
-                tr = self.fwd_transforms[t](d0)
-                if not self._verify_lossless(d0, tr, self.rev_transforms[t]):
-                    print(f"  skip t={t}"); continue
-                payload = self._compress_backend(tr)
-                r = self._decompress_backend(payload)
-                back = self.rev_transforms[t](r)
-                if back != d0:
-                    print(f"  FAIL .a{t}"); return False
-            print("  PASS .aN round-trip")
-        except Exception as e:
-            print(f"  FAIL .aN: {e}"); return False
-        print("\n.bN round-trip + size-delta test...")
+            d0 = b"The quick brown fox jumps over the lazy dog. " * 40
+            c = lzma.compress(d0, preset=9 | lzma.PRESET_EXTREME)
+            r = lzma.decompress(c)
+            if r != d0: print("  FAIL lzma"); return False
+            print(f"  PASS lzma ({len(d0)} → {len(c)})")
+        except Exception as e: print(f"  FAIL lzma: {e}"); return False
+
+        print("\n.aN/.bN/.cN/.dN/.eN size-delta test...")
         try:
-            checked = 0
+            counts = {"a":0, "b":0, "c":0, "d":0, "e":0}
             for t in (1, 17, 33, 45, 100, 200, 256):
                 d0 = b"The quick brown fox jumps over the lazy dog. " * 4
                 tr = self.fwd_transforms[t](d0)
                 if not self._verify_lossless(d0, tr, self.rev_transforms[t]):
                     continue
                 payload_a = self._compress_backend(tr)
-                if payload_a[0] != 1:
-                    continue  # zstd not chosen for this sample
-                payload_b = payload_a[1:]
-                # .bN must be exactly 1 byte smaller than .aN
-                if len(payload_b) != len(payload_a) - 1:
-                    print(f"  FAIL .b{t} size delta"); return False
-                r = zstd_dctx.decompress(b'\x28\xb5\x2f\xfd' + payload_b)
-                back = self.rev_transforms[t](r)
-                if back != d0:
-                    print(f"  FAIL .b{t} round-trip"); return False
-                checked += 1
-            print(f"  PASS .bN round-trip on {checked} samples (delta = -1 byte)")
+                flag = payload_a[0]
+                body = payload_a[1:]
+                counts["a"] += 1
+                if flag == 1:
+                    counts["b"] += 1
+                    if len(body) != len(payload_a) - 1:
+                        print("  FAIL .bN delta"); return False
+                    r = zstd_dctx.decompress(b'\x28\xb5\x2f\xfd' + body)
+                    if self.rev_transforms[t](r) != d0:
+                        print("  FAIL .bN rt"); return False
+                elif flag in (2, 3):
+                    counts["c"] += 1
+                    full = paq.compress(tr)
+                    if paq.decompress(full) != tr:
+                        print("  FAIL .cN rt"); return False
+                elif flag == 4:
+                    counts["d"] += 1
+                    if len(body) != len(payload_a) - 1:
+                        print("  FAIL .dN delta"); return False
+                    r = brotli.decompress(body)
+                    if self.rev_transforms[t](r) != d0:
+                        print("  FAIL .dN rt"); return False
+                elif flag == 5:
+                    counts["e"] += 1
+                    if len(body) != len(payload_a) - 1:
+                        print("  FAIL .eN delta"); return False
+                    r = lzma.decompress(body)
+                    if self.rev_transforms[t](r) != d0:
+                        print("  FAIL .eN rt"); return False
+            print(f"  PASS stripped-twin test  "
+                  f"(a={counts['a']} b={counts['b']} c={counts['c']} "
+                  f"d={counts['d']} e={counts['e']})")
         except Exception as e:
-            print(f"  FAIL .bN: {e}"); return False
+            print(f"  FAIL twins: {e}"); return False
+
         print("\n[All checks passed]")
         return True
 
 # ============================ MAIN ============================
 def main():
     print(f"{PROGNAME}")
-    print("Method A → input.pjp2  (256 transforms + PAQ/Zstd/Brotli)")
-    print("Method B → input.pjp3  (256 transforms + LZH + SHA-256)")
-    print("Method C → input.a1 .. input.a256  (per-transform, flag kept)")
-    print("Method D → input.b1 .. input.b256  (per-transform, zstd-only, -1 byte)")
-    print("★ Compress evaluates all candidates and keeps ONLY THE SMALLEST. ★")
-    print("  Exactly ONE file remains; everything else is discarded.\n")
+    print("Method A → input.pjp2  (raw pipeline)")
+    print("Method B → input.pjp3  (LZH + 8B SHA-256 tag)")
+    print("Method C → input.aN    (transform N + [flag][backend payload])")
+    print("Method D → input.bN    (zstd-only,   flag stripped, -1 byte)")
+    print("Method E → input.cN    (paq-only,    flag stripped, -1 byte)")
+    print("Method F → input.dN    (brotli-only, flag stripped, -1 byte)")
+    print("Method G → input.eN    (lzma-only,   flag stripped, -1 byte)")
+    print("★ Compress evaluates all candidates and keeps ONLY THE SMALLEST. ★\n")
 
     dl = input("Download 12 dictionaries from Google Drive? (y/n) [y]: ").strip().lower()
     try_download = (dl != 'n')
@@ -2240,7 +2297,7 @@ def main():
     while True:
         print("\nMenu:")
         print("1) Compress (one-winner tournament, 1 file left)")
-        print("2) Decompress (auto-detect .pjp2 / .pjp3 / .aN / .bN)")
+        print("2) Decompress (auto-detect .pjp2/.pjp3/.aN/.bN/.cN/.dN/.eN)")
         print("3) Full self-test")
         print("0) Exit")
         ch = input("> ").strip()
@@ -2249,15 +2306,14 @@ def main():
             c.compress_file_dual(f)
         elif ch == "2":
             while True:
-                f = input("Compressed file (.pjp2/.pjp3/.a1-.a256/.b1-.b256) "
+                f = input("Compressed file (.pjp2/.pjp3/.aN/.bN/.cN/.dN/.eN) "
                           "[Enter=cancel]: ").strip()
                 if not f: break
                 ok = (f.lower().endswith('.pjp2') or
                       f.lower().endswith('.pjp3') or
-                      re.search(r'\.a(\d+)$', f) or
-                      re.search(r'\.b(\d+)$', f))
+                      re.search(r'\.[abcde](\d+)$', f))
                 if not ok:
-                    print("Only .pjp2 / .pjp3 / .a1-.a256 / .b1-.b256 supported.")
+                    print("Only .pjp2/.pjp3/.aN/.bN/.cN/.dN/.eN supported.")
                     continue
                 o = input("Output file (blank=auto): ").strip()
                 if c.decompress_file(f, o): break
