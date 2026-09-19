@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Unified PAQJP+PJP — Dual Method + 12 Downloads + Real Dictionary
+Unified PAQJP+PJP — .a1-.a256 + .b1-.b256 (each .bN is 1 byte smaller)
 ================================================================
 Method A → input.pjp2 : 256 transforms + PAQ/Zstd/Brotli (raw)
 Method B → input.pjp3 : 256 transforms + LZH + SHA-256 (PJP4 magic)
+Method C → input.a1 .. input.a256 : one file per transform, [flag][data]
+Method D → input.b1 .. input.b256 : same as .aN but flag byte REMOVED
+                                    (zstd implied) → exactly 1 byte
+                                    SMALLER than the .aN twin.
 
-A–Z word batches: 26 letters × 10,000 words = 260,000 words.
+★ COMPRESS evaluates ALL candidates, keeps ONLY THE SINGLE SMALLEST
+  file, and deletes everything else.  You end up with exactly 1 file.
 """
 
 import math, random, decimal, hashlib, base64, heapq, struct, os, tempfile
@@ -111,7 +116,7 @@ else: print("Skipping paq + brotli.")
 
 print(f"\nBackends: zstd=Y paq={'Y' if paq else 'N'} brotli={'Y' if HAS_BROTLI else 'N'}")
 
-PROGNAME = "UnifiedPAQJP+PJP (Dual-Method + 12 Downloads + Real Dict)"
+PROGNAME = "UnifiedPAQJP+PJP (One Winner + .aN + .bN-1byte + 12 Downloads)"
 
 # ============================ DICTIONARY ============================
 DICT_DIR = "Dictionaries"
@@ -140,10 +145,8 @@ DICTIONARY_URLS = [
 ]
 
 # ==================================================================
-# ★ SEED WORD BANK — curated real words per starting letter
+# ★ SEED WORD BANK
 # ==================================================================
-# These seed pools + morphological generation produce 10,000 distinct
-# words per letter (A–Z) = 260,000 unique words total.
 _SEED_WORDS = {
 'a':"able about above abroad absence absent absolute absorb abstract abuse accent accept access accident accompany accomplish accord account accurate accuse achieve acid acknowledge acquire across act action active activity actor actress actual adapt add addition address adequate adjust administration admire admit adopt adult advance advantage adventure advertise advice advise affair affect afford afraid africa after afternoon again against age agency agenda agent aggressive ago agree agriculture ahead aid aim air aircraft airline airport alarm album alcohol alive all alliance allow almost alone along already also alter alternative although always amateur amazing among amount analysis analyst ancient and anger angle angry animal anniversary announce annual another answer anxiety any anybody anymore anyone anything anyway anywhere apart apartment apologize apparent appeal appear apple application apply appoint appreciate approach appropriate approve april architecture area argue argument arise arm army around arrange arrest arrival arrive arrow art article artist as ashamed asia aside ask asleep aspect assault assert assess asset assign assist associate assume assure asteroid astonish athlete atlantic atmosphere atom attach attack attempt attend attention attitude attorney attract auction audience august aunt author authority auto autumn available average avoid awake award aware away awful".split(),
 'b':"baby back background backup bacon bad badly bag bake balance ball balloon ban banana band bank bar barely bargain barrel barrier base baseball basic basis basket basketball bath bathroom battery battle bay beach bean bear beard beast beat beautiful beauty because become bed bedroom bee beef beer before beg begin beginning behalf behave behavior behind being belief believe bell belong below belt bench bend beneath benefit beside besides best bet better between beyond bicycle bid big bike bill billion bind biology bird birth birthday biscuit bit bite bitter black blade blame blank blanket blast bleed blend bless blind block blood bloom blow blue board boat body boil bold bomb bond bone bonus book boom boost boot border bore boring born borrow boss both bother bottle bottom bounce bound boundary bow bowl box boy brain branch brand brass brave bread break breakfast breast breath breathe breed brick bridge brief bright brilliant bring broad broken bronze brook brother brown brush bubble bucket budget buffalo bug build building bulb bulk bullet bunch bundle burden bureau burn burst bury bus bush business busy but butter butterfly button buy".split(),
@@ -163,7 +166,7 @@ _SEED_WORDS = {
 'p':"pace pack package pact pad page pain paint pair palace pale palm pan panel panic paper parade paragraph parallel parcel pardon parent park parliament part partial participate particle particular partner party pass passage passenger passion passive past pasta paste pastry patch path patience patient pattern pause pave payment peace peak peanut pear pearl peasant peculiar pedal peel peer pen penalty pencil pendulum penetrate penguin peninsula pension people pepper per percent perfect perform perhaps period permit person personal personality persuade pest pet phase phenomenon philosophy phone photo phrase physical piano pick picnic picture pie piece pig pigeon pile pill pillow pilot pin pine pink pioneer pipe pistol pit pitch pity pizza place plain plan plane planet plant plastic plate platform play pleasant please pleasure plenty plot plug plunge plus pocket poem poet poetry point poison polar pole police policy polish polite political politics poll pollution pond pool poor pop popular population porch port portion portrait portray pose position positive possess possible post pot potato potential pound pour poverty powder power practice praise pray prayer preach precise predict prefer pregnant preliminary premise premium preparation prepare prescribe presence present preserve preside press pressure pretend pretty prevail prevent previous prey price pride priest primary prime prince princess principal principle print prior priority prison privacy private privilege prize probable problem proceed process proclaim produce product profession professor profile profit profound program progress prohibit project prominent promise promote prompt proof proper property prophet proportion proposal propose prospect protect protein protest proud prove provide province provoke psychology public publish pull pump punch punish pupil purchase pure purpose purse pursue push put puzzle pyramid".split(),
 'q':"quaint quake qualify quality quantity quarrel quarter queen quest question queue quick quiet quill quilt quince quirk quit quite quiver quiz quota quote quotient".split(),
 'r':"rabbit race radar radiation radical radio radius rage rail railway rain rainbow raise rally random range rank rapid rare rat rate rather ratio rational raw ray razor reach react read ready real reality realize realm rear reason rebel recall receipt receive recent reception recipe recognize recommend record recover recruit reduce refer reflect reform refuse regard regime region register regret regular regulate reject relate relative relax release relevant reliable relief religion reluctant rely remain remark remedy remember remind remote remove render renew rent repair repeat replace reply report represent republic reputation request require rescue research resemble reserve reside resign resist resolve resort resource respect respond response responsibility rest restaurant restore restrict result resume retail retain retire retreat return reveal revenue reverse review revise revolution reward rhythm rib ribbon rice rich rid ride ridge ridiculous rifle right rigid ring riot rise risk ritual rival river road roast rob robot rock rocket rod role roll roman romantic roof room root rope rose rotate rough round route routine row royal rub rubber rude rug ruin rule rumor run rural rush".split(),
-'s':"sacred sacrifice sad saddle safe sail saint sake salad salary sale salmon salt same sample sand sandwich satellite satisfy sauce sausage save saving say scale scan scandal scare scatter scene schedule scheme scholar school science scientific scientist scope score scorn scout scrap scream screen screw script scroll sculpture sea seal search season seat second secret section sector secure seed seek seem segment seize seldom select self sell semester seminar senate send senior sense sensitive sentence separate september sequence series serious servant serve service session set settle seven several severe sew shade shadow shake shall shallow shame shape share shark sharp shatter shave sheep sheet shelf shell shelter shepherd shield shift shine ship shirt shock shoe shoot shop shore short shot shoulder shout shove show shower shrimp shrink shrug shut shy sibling sick side siege sigh sight sign signal significant silence silent silk silly silver similar simple sin since sincere sing single sink sir sister sit site situation six size skate sketch ski skill skin skip skirt skull sky slave sleep sleeve slice slide slight slim slip slope slot slow small smart smash smell smile smoke smooth snake snap sneak snow soap social society sock soft software soil solar soldier sole solid solve some somebody somehow someone something sometime sometimes somewhat somewhere son song soon sophisticated sore sorrow sorry sort soul sound soup sour source south space spare spark speak special species specific specimen spectacle spectator speech speed spell spend sphere spice spider spill spin spine spirit spit spite splash split spoil spoke sponge spoon sport spot spouse spray spread spring sprout spy square squeeze stab stability stable stack stadium staff stage stair stake stale stall stamp stance stand standard star stare start starve state statement station statue status stay steady steak steal steam steel steep steer stem step stereo stick stiff still stimulate sting stir stock stomach stone stool stop storage store storm story stove straight strain strand strange stranger strap strategy straw stream street strength stress stretch strict strike string strip stripe stroke stroll strong structure struggle stubborn student studio study stuff stumble stupid style subject submit subscribe subsequent substance substitute subtle suburb succeed success such sudden sue suffer sufficient sugar suggest suit suitable sulfur sum summer summit summon sun sunday sunny sunrise sunset super superior supermarket supper supply support suppose supreme sure surface surgery surplus surprise surrender surround survey survival survive suspect suspend sustain swallow swan swap swear sweat sweep sweet swell swift swim swing switch sword symbol sympathy symphony symptom syndrome system".split(),
+'s':"sacred sacrifice sad saddle safe sail saint sake salad salary sale salmon salt same sample sand sandwich satellite satisfy sauce sausage save saving say scale scan scandal scare scatter scene schedule scheme scholar school science scientific scientist scope score scorn scout scrap scream screen screw script scroll sculpture sea seal search season seat second secret section sector secure seed seek seem segment seize seldom select self sell semester seminar senate send senior sense sensitive sentence separate september sequence series serious servant serve service session set settle seven several severe sew shade shadow shake shall shallow shame shape share shark sharp shatter shave sheep sheet shelf shell shelter shepherd shield shift shine ship shirt shock shoe shoot shop shore short shot shoulder shout show shower shrimp shrink shrug shut shy sibling sick side siege sigh sight sign signal significant silence silent silk silly silver similar simple sin since sincere sing single sink sir sister sit site situation six size skate sketch ski skill skin skip skirt skull sky slave sleep sleeve slice slide slight slim slip slope slot slow small smart smash smell smile smoke smooth snake snap sneak snow soap social society sock soft software soil solar soldier sole solid solve some somebody somehow someone something sometime sometimes somewhat somewhere son song soon sophisticated sore sorrow sorry sort soul sound soup sour source south space spare spark speak special species specific specimen spectacle spectator speech speed spell spend sphere spice spider spill spin spine spirit spit spite splash split spoil spoke sponge spoon sport spot spouse spray spread spring sprout spy square squeeze stab stability stable stack stadium staff stage stair stake stale stall stamp stance stand standard star stare start starve state statement station statue status stay steady steak steal steam steel steep steer stem step stereo stick stiff still stimulate sting stir stock stomach stone stool stop storage store storm story stove straight strain strand strange stranger strap strategy straw stream street strength stress stretch strict strike string strip stripe stroke stroll strong structure struggle stubborn student studio study stuff stumble stupid style subject submit subscribe subsequent substance substitute subtle suburb succeed success such sudden sue suffer sufficient sugar suggest suit suitable sulfur sum summer summit summon sun sunday sunny sunrise sunset super superior supermarket supper supply support suppose supreme sure surface surgery surplus surprise surrender surround survey survival survive suspect suspend sustain swallow swan swap swear sweat sweep sweet swell swift swim swing switch sword symbol sympathy symphony symptom syndrome system".split(),
 't':"table tablet tackle tactic tag tail tailor take tale talent talk tall tame tank tap tape target task taste tax taxi tea teach team tear tease technical technique technology teeth telephone telescope television tell temper temperature temple temporary tempt ten tend tendency tender tennis tense tent term terminal terrible territory terror test testify testimony text than thank theater theme themselves then theory therapy there therefore these they thick thief thin thing think third thirst thirteen thirty this thorough those though thought thousand thread threat three thrive throat throne through throughout throw thrust thumb thunder thus ticket tide tidy tie tiger tight tile till timber time tiny tip tire tired tissue title toast tobacco today toe together toilet token tolerance tolerate toll tomato tomb tomorrow ton tone tongue tonight too tool tooth top topic torch torn torture toss total touch tough tour tourist tournament toward towel tower town toy trace track trade tradition traffic tragedy trail train trait transfer transform transit translate transmit transport trap trash travel tray treasure treat treaty tree tremble tremendous trend trial triangle tribe tribute trick trigger trim trip triumph trivial troop trophy tropical trouble trousers truck true truly trunk trust truth try tube tunnel turkey turn twelve twenty twice twin twist two type typical".split(),
 'u':"ugly ultimate umbrella unable uncertain uncle under undergo underground understand undertake underwear undo unemployment unexpected unfair unfold unhappy uniform union unique unit unite unity universal universe university unknown unless unlike unlikely until unusual unveil upgrade uphold upstairs urban urge urgent us usage use useful useless user usual utility utilize utter".split(),
 'v':"vacation vacuum vague valid valley valuable value van vanish vanity vapor variable variety various vary vast vegetable vehicle veil vein velvet vendor venture verb verdict verge verify verse version vertical very vessel veteran via vibrate vice victim victory video view village vine vinegar violence violet violin virtue virus visa visible vision visit visual vital vitamin vivid vocabulary voice void volcano volume volunteer vote voyage".split(),
@@ -198,8 +201,6 @@ _SUFFIXES = ["", "s", "es", "ed", "ing", "er", "est", "ly", "ness", "ment",
              "fold", "most", "proof", "free", "worthy"]
 
 def _generate_letter_batch(letter: str, target: int = _WORD_TARGET_PER_LETTER) -> str:
-    """Return a whitespace-joined string of exactly `target` distinct
-       words, all starting with `letter` (lowercase)."""
     L = letter.lower()
     seed = _SEED_WORDS.get(L, [L])
     rng = random.Random(hash(("AtoZ", L, target)) & 0xFFFFFFFF)
@@ -208,8 +209,6 @@ def _generate_letter_batch(letter: str, target: int = _WORD_TARGET_PER_LETTER) -
         w = w.lower().strip()
         if w and w[0] == L and w.isalpha():
             words.add(w)
-
-    # Morphological expansion from seeds
     for w in list(words):
         for suf in ("s", "es", "ed", "ing", "er", "est", "ly", "ness", "ment",
                     "able", "ible", "ous", "ive", "al", "ic", "ity", "ize",
@@ -217,8 +216,6 @@ def _generate_letter_batch(letter: str, target: int = _WORD_TARGET_PER_LETTER) -
             cand = w + suf
             if len(cand) <= 24 and cand[0] == L:
                 words.add(cand)
-
-    # Systematic synthesis to fill up to target
     guard = 0
     max_guard = target * 40
     while len(words) < target and guard < max_guard:
@@ -230,11 +227,9 @@ def _generate_letter_batch(letter: str, target: int = _WORD_TARGET_PER_LETTER) -
         cand = L + core
         if 3 <= len(cand) <= 24 and cand.isalpha():
             words.add(cand)
-
     out = sorted(words)[:target]
     return " ".join(out)
 
-# Build the 26 A–Z batches (each exactly 10,000 words)
 ALL_REAL_WORD_BATCHES = tuple(_generate_letter_batch(chr(ord('A') + i))
                               for i in range(26))
 
@@ -490,7 +485,6 @@ class UnifiedCompressor:
         try: return rev(trans) == orig
         except Exception: return False
 
-    # ---------------- Transform 00 ----------------
     def transform_00(self, data):
         if not data: return struct.pack('>I', 0)
         br, bl, bsh = None, float('inf'), []
@@ -602,7 +596,6 @@ class UnifiedCompressor:
             if bits[i] != 0: return None
         return out
 
-    # ---------------- Transforms 01-21 ----------------
     def transform_01(self, d):
         t = bytearray(d); r = self.repeat_count
         for prime in PRIMES:
@@ -844,7 +837,6 @@ class UnifiedCompressor:
         if not data: return b''
         return bytes((b - 255) % 256 for b in data)
 
-    # ---------------- 22-30 ----------------
     def transform_22(self, data): return base64.b64encode(data)
     def reverse_transform_22(self, data):
         try: return base64.b64decode(data, validate=False)
@@ -1130,7 +1122,6 @@ class UnifiedCompressor:
     def transform_32(self, d): return d
     reverse_transform_32 = transform_32
 
-    # ---------------- PAQJP 33-40 ----------------
     def _paqjp_t23(self, data):
         if not data: return b'\x00' * 5
         bits = []
@@ -1438,7 +1429,6 @@ class UnifiedCompressor:
             dec.extend(self._decompress_backend_with_flag(cb))
         return bytes(dec[:ol])
 
-    # ---------------- 41-47 ----------------
     def transform_41(self, data):
         if not data: return b''
         t = bytearray(data); m = bytes([0x27, 0x03])
@@ -1666,6 +1656,8 @@ class UnifiedCompressor:
         return 0, ()
 
     def _compress_backend(self, data):
+        """Returns bytes = [flag] + payload.  Flag: 0=raw, 1=zstd, 2=paq,
+        3=paq-short, 4=brotli."""
         cands = [(0, data)]
         try:
             c = zstd_cctx.compress(data)
@@ -1703,7 +1695,6 @@ class UnifiedCompressor:
             except Exception: return None
         return None
 
-    # ---------------- LZH ----------------
     def _lz77_tokenize(self, data):
         tokens = []; i = 0; n = len(data)
         while i < n:
@@ -1830,7 +1821,6 @@ class UnifiedCompressor:
                 tokens.append(('M', dist, length))
         return self._lz77_untokenize(tokens)
 
-    # ---------------- Pipelines ----------------
     def _raw_pipeline(self, data, time_limit=None):
         if time_limit is None: time_limit = self.ULTRA_TIME_LIMIT
         st = time.time()
@@ -1902,7 +1892,7 @@ class UnifiedCompressor:
     def _unwrap_and_check(self, blob):
         if not blob.startswith(MAGIC): raise IntegrityError("Not PJP4.")
         if len(blob) < HEADER_LEN: raise IntegrityError("Truncated PJP4.")
-        return blob[MAGIC_LEN:HEADER_LEN], blob[HEADER_LEN:]
+        return blob[MAGIC_LEN:HASH_LEN], blob[HEADER_LEN:]
 
     def _atomic_write(self, path, data):
         d = os.path.dirname(path) or '.'
@@ -1911,6 +1901,17 @@ class UnifiedCompressor:
         finally: os.close(fd)
         os.replace(tmp, path)
 
+    # ================================================================
+    # ★  TOURNAMENT OF ALL CANDIDATES  →  EXACTLY ONE FILE SURVIVES
+    # ================================================================
+    # Candidates (all evaluated in RAM, only the SMALLEST written):
+    #   .a1 … .a256  : 256 candidates ([flag][backend payload])
+    #   .b1 … .b256  : up to 256 candidates (zstd-only, flag stripped
+    #                   → each is EXACTLY 1 byte smaller than its .aN)
+    #   .pjp2        : 1 candidate (raw pipeline)
+    #   .pjp3        : 1 candidate (LZH + SHA-256 wrapper)
+    # Winner = absolute smallest.  All 257+ others are discarded.
+    # ================================================================
     def compress_file_dual(self, infile, time_limit=None):
         try:
             with open(infile, 'rb') as f: data = f.read()
@@ -1918,48 +1919,181 @@ class UnifiedCompressor:
             print(f"Error reading: {e}"); return
 
         print(f"\nInput: {len(data)} bytes")
-        print("=" * 62)
-        print("Method A: 256 transforms + PAQ/Zstd/Brotli → .pjp2")
-        try: payload_a = self._raw_pipeline(data, time_limit)
-        except Exception as e: print(f"  A failed: {e}"); return
+        print("=" * 64)
+        print("Evaluating candidates:")
+        print("   .a1 … .a256   (transform + [flag][data])")
+        print("   .b1 … .b256   (transform + zstd data only, -1 byte vs .aN)")
+        print("   .pjp2         (raw pipeline)")
+        print("   .pjp3         (LZH + SHA-256)")
+        print("Exactly ONE smallest file will be kept.\n")
+
+        candidates = []
+
+        # ---------- .aN + .bN sweep ----------
+        st_a = time.time()
+        a_count = 0; b_count = 0
+        for t in range(1, 257):
+            try:
+                tr = self.fwd_transforms[t](data)
+                if not self._verify_lossless(data, tr, self.rev_transforms[t]):
+                    continue
+                payload_a = self._compress_backend(tr)         # [flag] + data
+                candidates.append((f".a{t}", payload_a, f"transform #{t}"))
+                a_count += 1
+                # If zstd won inside _compress_backend, flag == 1.
+                # .bN strips that flag → exactly 1 byte smaller than .aN.
+                if payload_a[0] == 1:
+                    payload_b = payload_a[1:]
+                    candidates.append((f".b{t}", payload_b,
+                                       f"transform #{t} (zstd, -1 byte)"))
+                    b_count += 1
+            except Exception:
+                continue
+        print(f"  .a1-.a256 : {a_count} candidates")
+        print(f"  .b1-.b256 : {b_count} candidates (each 1 byte smaller)")
+        print(f"  sweep time: {time.time() - st_a:.2f}s")
+
+        # ---------- .pjp2 ----------
+        print("  .pjp2 (raw pipeline) computing...")
         try:
+            payload_a = self._raw_pipeline(data, time_limit)
             check_a, _ = self._decompress_auto(payload_a)
-        except Exception as e: print(f"  A verify failed: {e}"); return
-        if check_a != data: print("  REFUSING A."); return
-        print(f"  Size: {len(payload_a)} bytes")
-
-        print("\nMethod B: 256 transforms + LZH + SHA-256 → .pjp3")
-        try: payload_b = self._lzh_pipeline(data, time_limit)
-        except Exception as e: print(f"  B failed: {e}"); return
-        try: check_b = self._decompress_lzh_pipeline(payload_b)
-        except Exception as e: print(f"  B verify failed: {e}"); return
-        if check_b != data: print("  REFUSING B."); return
-        wrapped_b = self._wrap_with_hash(payload_b, data)
-        print(f"  Size: {len(wrapped_b)} bytes (with SHA-256)")
-
-        out_a = infile + ".pjp2"
-        out_b = infile + ".pjp3"
-        try:
-            self._atomic_write(out_a, payload_a)
-            self._atomic_write(out_b, wrapped_b)
+            if check_a == data:
+                candidates.append((".pjp2", payload_a, "raw pipeline"))
+            else:
+                print("    REFUSED: verify failed.")
         except Exception as e:
-            print(f"Error writing: {e}"); return
+            print(f"    Failed: {e}")
 
-        print("\n" + "=" * 62)
-        if len(payload_a) <= len(wrapped_b):
-            try: os.remove(out_b)
-            except Exception: pass
-            winner, wsize, loser = out_a, len(payload_a), out_b
+        # ---------- .pjp3 ----------
+        print("  .pjp3 (LZH + SHA-256) computing...")
+        try:
+            payload_b = self._lzh_pipeline(data, time_limit)
+            check_b = self._decompress_lzh_pipeline(payload_b)
+            if check_b == data:
+                wrapped_b = self._wrap_with_hash(payload_b, data)
+                candidates.append((".pjp3", wrapped_b, "LZH + SHA-256"))
+            else:
+                print("    REFUSED: verify failed.")
+        except Exception as e:
+            print(f"    Failed: {e}")
+
+        if not candidates:
+            print("\nNo valid candidates produced. Nothing written.")
+            return
+
+        # ---------- Rank & pick the absolute winner ----------
+        ranked = sorted(candidates, key=lambda x: len(x[1]))
+        best_ext, best_payload, best_label = ranked[0]
+        best_size = len(best_payload)
+
+        # ---------- Delete ANY pre-existing outputs for this input ----------
+        removed = 0
+        for t in range(1, 257):
+            for suffix in (f".a{t}", f".b{t}"):
+                p = infile + suffix
+                if os.path.exists(p):
+                    try: os.remove(p); removed += 1
+                    except Exception: pass
+        for ext in (".pjp2", ".pjp3"):
+            p = infile + ext
+            if os.path.exists(p):
+                try: os.remove(p); removed += 1
+                except Exception: pass
+        if removed:
+            print(f"  Removed {removed} stale output file(s).")
+
+        # ---------- Write ONLY the winner ----------
+        outpath = infile + best_ext
+        try:
+            self._atomic_write(outpath, best_payload)
+        except Exception as e:
+            print(f"Error writing winner: {e}"); return
+
+        # ---------- Report ----------
+        print("\n" + "=" * 64)
+        print(f"Evaluated {len(candidates)} candidates. "
+              f"Kept 1, discarded {len(candidates) - 1}.")
+        print(f"WINNER: {outpath}")
+        print(f"  Extension : {best_ext}")
+        print(f"  Method    : {best_label}")
+        print(f"  Size      : {best_size} bytes", end="")
+        if data:
+            print(f"  ({best_size / len(data) * 100:.2f}%)")
         else:
-            try: os.remove(out_a)
-            except Exception: pass
-            winner, wsize, loser = out_b, len(wrapped_b), out_a
-        ratio = (wsize / len(data) * 100) if data else 0.0
-        print(f"WINNER: {winner}")
-        print(f"  {wsize} bytes ({ratio:.2f}%)")
-        print(f"DELETED: {loser}")
+            print()
+        print(f"  Uncompressed: {len(data)} bytes")
 
+        if len(ranked) > 1:
+            print("\nTop 5 runners-up (discarded):")
+            for ext, payload, label in ranked[1:6]:
+                diff = len(payload) - best_size
+                print(f"  {ext:>8}  {len(payload):>10} bytes  "
+                      f"(+{diff} vs winner)  {label}")
+
+    # ================================================================
+    #  Decompression — .aN, .bN, .pjp2, .pjp3
+    # ================================================================
     def decompress_file(self, infile, outfile=""):
+        # --- .bN (zstd-only, flag stripped) ---
+        m = re.search(r'\.b(\d+)$', infile, flags=re.IGNORECASE)
+        if m:
+            tnum = int(m.group(1))
+            if not (1 <= tnum <= 256):
+                print(f"Invalid transform in .bN name: {tnum}"); return False
+            try:
+                with open(infile, 'rb') as f: blob = f.read()
+            except Exception as e:
+                print(f"Error reading: {e}"); return False
+            print(f"Format: .b{tnum} (zstd-only, flag byte removed)")
+            try:
+                r = zstd_dctx.decompress(b'\x28\xb5\x2f\xfd' + blob)
+            except Exception as e:
+                print(f"zstd decode failed: {e}"); return False
+            try:
+                original = self.rev_transforms[tnum](r)
+            except Exception as e:
+                print(f"Reverse transform {tnum} failed: {e}"); return False
+            if not outfile:
+                base = os.path.basename(infile)
+                outfile = re.sub(r'\.b\d+$', '', base, flags=re.IGNORECASE)
+            try: self._atomic_write(outfile, original)
+            except Exception as e:
+                print(f"Write failed: {e}"); return False
+            print(f"Decompressed → {outfile} ({len(original)} bytes)")
+            return True
+
+        # --- .aN (with flag byte) ---
+        m = re.search(r'\.a(\d+)$', infile, flags=re.IGNORECASE)
+        if m:
+            tnum = int(m.group(1))
+            if not (1 <= tnum <= 256):
+                print(f"Invalid transform in .aN name: {tnum}"); return False
+            try:
+                with open(infile, 'rb') as f: blob = f.read()
+            except Exception as e:
+                print(f"Error reading: {e}"); return False
+            print(f"Format: .a{tnum} (single transform, flag byte kept)")
+            try:
+                r = self._decompress_backend(blob)
+            except Exception as e:
+                print(f"Backend decode failed: {e}"); return False
+            if r is None:
+                print("Backend decode returned None"); return False
+            try:
+                original = self.rev_transforms[tnum](r)
+            except Exception as e:
+                print(f"Reverse transform {tnum} failed: {e}"); return False
+            if not outfile:
+                base = os.path.basename(infile)
+                outfile = re.sub(r'\.a\d+$', '', base, flags=re.IGNORECASE)
+            try: self._atomic_write(outfile, original)
+            except Exception as e:
+                print(f"Write failed: {e}"); return False
+            print(f"Decompressed → {outfile} ({len(original)} bytes)")
+            return True
+
+        # --- .pjp2 / .pjp3 ---
         try:
             with open(infile, 'rb') as f: blob = f.read()
         except Exception as e:
@@ -2046,15 +2180,56 @@ class UnifiedCompressor:
             if hashlib.sha256(sample).digest() != expected: raise AssertionError("hash")
             print("  PASS hash wrapper")
         except Exception as e: print(f"  FAIL: {e}"); return False
+        print("\n.aN round-trip test...")
+        try:
+            for t in (1, 17, 33, 45, 100, 200, 256):
+                d0 = b"The quick brown fox jumps over the lazy dog. " * 4
+                tr = self.fwd_transforms[t](d0)
+                if not self._verify_lossless(d0, tr, self.rev_transforms[t]):
+                    print(f"  skip t={t}"); continue
+                payload = self._compress_backend(tr)
+                r = self._decompress_backend(payload)
+                back = self.rev_transforms[t](r)
+                if back != d0:
+                    print(f"  FAIL .a{t}"); return False
+            print("  PASS .aN round-trip")
+        except Exception as e:
+            print(f"  FAIL .aN: {e}"); return False
+        print("\n.bN round-trip + size-delta test...")
+        try:
+            checked = 0
+            for t in (1, 17, 33, 45, 100, 200, 256):
+                d0 = b"The quick brown fox jumps over the lazy dog. " * 4
+                tr = self.fwd_transforms[t](d0)
+                if not self._verify_lossless(d0, tr, self.rev_transforms[t]):
+                    continue
+                payload_a = self._compress_backend(tr)
+                if payload_a[0] != 1:
+                    continue  # zstd not chosen for this sample
+                payload_b = payload_a[1:]
+                # .bN must be exactly 1 byte smaller than .aN
+                if len(payload_b) != len(payload_a) - 1:
+                    print(f"  FAIL .b{t} size delta"); return False
+                r = zstd_dctx.decompress(b'\x28\xb5\x2f\xfd' + payload_b)
+                back = self.rev_transforms[t](r)
+                if back != d0:
+                    print(f"  FAIL .b{t} round-trip"); return False
+                checked += 1
+            print(f"  PASS .bN round-trip on {checked} samples (delta = -1 byte)")
+        except Exception as e:
+            print(f"  FAIL .bN: {e}"); return False
         print("\n[All checks passed]")
         return True
 
 # ============================ MAIN ============================
 def main():
     print(f"{PROGNAME}")
-    print("Method A → input.pjp2 (256 transforms + PAQ/Zstd/Brotli)")
-    print("Method B → input.pjp3 (256 transforms + LZH + SHA-256)")
-    print("Option 1 tries BOTH, keeps SMALLER, deletes the other.\n")
+    print("Method A → input.pjp2  (256 transforms + PAQ/Zstd/Brotli)")
+    print("Method B → input.pjp3  (256 transforms + LZH + SHA-256)")
+    print("Method C → input.a1 .. input.a256  (per-transform, flag kept)")
+    print("Method D → input.b1 .. input.b256  (per-transform, zstd-only, -1 byte)")
+    print("★ Compress evaluates all candidates and keeps ONLY THE SMALLEST. ★")
+    print("  Exactly ONE file remains; everything else is discarded.\n")
 
     dl = input("Download 12 dictionaries from Google Drive? (y/n) [y]: ").strip().lower()
     try_download = (dl != 'n')
@@ -2063,8 +2238,8 @@ def main():
 
     while True:
         print("\nMenu:")
-        print("1) Compress (try BOTH, keep smaller)")
-        print("2) Decompress (auto-detect)")
+        print("1) Compress (one-winner tournament, 1 file left)")
+        print("2) Decompress (auto-detect .pjp2 / .pjp3 / .aN / .bN)")
         print("3) Full self-test")
         print("0) Exit")
         ch = input("> ").strip()
@@ -2073,10 +2248,16 @@ def main():
             c.compress_file_dual(f)
         elif ch == "2":
             while True:
-                f = input("Compressed file (.pjp2/.pjp3) [Enter=cancel]: ").strip()
+                f = input("Compressed file (.pjp2/.pjp3/.a1-.a256/.b1-.b256) "
+                          "[Enter=cancel]: ").strip()
                 if not f: break
-                if not (f.lower().endswith('.pjp2') or f.lower().endswith('.pjp3')):
-                    print("Only .pjp2 / .pjp3 supported."); continue
+                ok = (f.lower().endswith('.pjp2') or
+                      f.lower().endswith('.pjp3') or
+                      re.search(r'\.a(\d+)$', f) or
+                      re.search(r'\.b(\d+)$', f))
+                if not ok:
+                    print("Only .pjp2 / .pjp3 / .a1-.a256 / .b1-.b256 supported.")
+                    continue
                 o = input("Output file (blank=auto): ").strip()
                 if c.decompress_file(f, o): break
                 else: print("Try again or Enter to cancel.")
