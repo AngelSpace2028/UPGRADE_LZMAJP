@@ -13,8 +13,8 @@ Decompression auto-detects format.
 ★ zstandard MANDATORY — will retry import after every install attempt ★
 
 Word batches:
-  • A and B are embedded below.
-  • C through J are loaded from ./word_batches/batch_X.txt (skipped if absent).
+  • A through L are embedded below (A, B, C, D, E, F, G, J, K, L).
+  • H and I are loaded from ./word_batches/batch_H.txt / batch_I.txt (skipped if absent).
 """
 
 import math, random, decimal, hashlib, base64, heapq, struct, os, tempfile
@@ -895,13 +895,1031 @@ vilnius warsaw wellington windhoek yamoussoukro yaounde yaren yerevan zagreb zim
 """
 
 # ==================================================================
-# ★ LOAD EXTERNAL BATCHES C..J from ./word_batches/batch_X.txt
+# ★ REAL WORDS — EMBEDDED BATCHES C, D, E, F, G, J, K, L
+# ==================================================================
+
+REAL_WORDS_5000_C = """
+table chair sofa couch bench stool recliner ottoman chaise loveseat settee futon
+hammock rocker armchair wingchair footstool pouf beanbag mattress pillow cushion
+duvet comforter quilt blanket sheet bedspread bedframe headboard footboard canopy
+bunk trundle crib cradle bassinet wardrobe closet armoire dresser chest drawer
+nightstand vanity hutch sideboard credenza buffet cabinet cupboard shelf rack
+bookcase bookshelf mantel fireplace hearth stove oven range cooktop microwave
+dishwasher refrigerator freezer toaster blender mixer grinder processor kettle
+teapot coffeemaker percolator espresso frenchpress skillet saucepan stockpot
+casserole dutchie wok griddle broiler rotisserie steamer colander sieve strainer
+ladle spatula whisk tongs peeler grater mandoline mortar pestle rolling pin
+cuttingboard choppingblock butcherblock breadbox canister jar bottle thermos
+flask tumbler goblet chalice stein mug cup saucer teacup coffee cup plate bowl
+platter dish saucer ramekin tureen gravyboat saltcellar pepper mill napkin
+placemat coaster tablecloth runner trivet candleholder candelabra sconce
+chandelier lampshade lantern flashlight torch floodlight spotlight desk lamp
+floor lamp bedside lamp fairy lights pendant pendantlight dimmer switch outlet
+socket plug cord cable wire adapter charger extension powerstrip surgeprotector
+television monitor screen projector speaker soundbar subwoofer amplifier
+receiver turntable record player cassette player cdplayer radio boombox
+walkman headphones earbuds headset microphone webcam tripod selfiestick camera
+lens flash shutter tripod camcorder drone printer scanner copier fax shredder
+laminator labelmaker stapler holepunch binder folder clipboard whiteboard
+chalkboard corkboard bulletin pinboard thumbtack pushpin paperclip binderclip
+rubberband ruler protractor compass calculator abacus slide rule pencil pen
+marker highlighter crayon chalk eraser sharpener inkwell quill fountain pen
+ballpoint gel pen rollerball mechanical pencil lead graphite charcoal pastel
+watercolor gouache acrylic oil paint canvas easel palette brushes sketchpad
+notebook journal diary ledger planner calendar organizer filofax binder folder
+envelope stamp postcard letter parcel package box carton crate barrel drum
+bucket pail basket hamper bin trashcan wastebin dumpster recycling compost
+mop broom dustpan vacuum sweeper scrub brush sponge rag cloth towel washcloth
+handtowel bathmat showercurtain loofah soap dispenser toothbrush toothpaste
+floss mouthwash razor shavingcream aftershave lotion perfume cologne deodorant
+shampoo conditioner hairbrush comb hairdryer straightener curler scissors
+clippers tweezers nailfile manicure pedicure cottonball qtip tissues wipes
+diaper wipe bib pacifier bottle sippy highchair stroller crib mobile rattle
+teether playpen playmat toy blocks legos duplo puzzle chess checkers backgammon
+dominoes dice cards deck shuffleboard darts billiards pool snooker foosball
+airhockey pingpong tabletennis badminton volleyball basketball soccer football
+rugby cricket baseball softball tennis racket bat glove helmet pads jersey
+cleats sneakers boots sandals flipflops slippers loafers oxfords brogues
+moccasins wedges heels pumps stilettos platforms espadrilles clogs galoshes
+wellingtons rainboots snowboots hikers trailrunners trainers runners joggers
+belt buckle suspenders necktie bowtie cravat ascot scarf muffler shawl wrap
+poncho cape cloak coat jacket blazer sportcoat windbreaker parka anorak
+trenchcoat overcoat topcoat peacoat dufflecoat raincoat slicker vest waistcoat
+cardigan pullover sweater jumper sweatshirt hoodie tank top camisole blouse
+shirt tshirt polo henley flannel dress gown frock skirt kilt tutu petticoat
+crinoline bustle corset brassiere lingerie underwear boxers briefs panties
+leggings tights stockings pantyhose socks slippers robe bathrobe kimono sari
+saree dirndl lederhosen toga sarong pareo dashiki caftan muumuu jumper romper
+overalls coveralls jumpsuit wetsuit snowsuit spacesuit
+jewelry bracelet bangle anklet armband brooch pin pendant locket necklace
+choker torque chain earring stud hoop ring band signet engagement wedding
+crown tiara diadem circlet coronet mitre turban fez beret cap hat bonnet
+beanie fedora trilby panama bowler derby stetson sombrero boater cloche
+visor helmet hardhat motorcycle helmet facemask goggles monocle spectacles
+sunglasses reading glasses contact lens binoculars telescope microscope
+periscope kaleidoscope magnifier loupe
+wallet purse clutch satchel handbag tote duffel backpack knapsack rucksack
+briefcase attache portmanteau trunk valise suitcase garment bag weekender
+umbrella parasol cane walkingstick crutch staff crook shepherdshook
+fork spoon knife spork chopsticks butterknife steak knife paring knife
+cleaver boning knife bread knife fillet knife chef knife utility knife
+pocketknife swissarmy jackknife switchblade bayonet dagger stiletto dagger
+sword saber rapier katana scimitar cutlass claymore broadsword foil epee
+shield buckler targe aegis breastplate cuirass greaves gauntlet visor helm
+armor mail chainmail plate mail
+hammer mallet sledgehammer tackhammer clawhammer ballpeen crosspeen
+wrench spanner pliers pincers nippers snips shears scissors tin snips
+screwdriver chisel gouge awl punch broach reamer countersink tap die
+drill brace bit auger gimlet hole saw holesaw hacksaw coping saw jigsaw
+circular saw chainsaw tablesaw bandsaw miter saw radial saw backsaw
+plane spokeshave drawknife rasp file wood rasp metal file nail set
+clamp vise c clamp bar clamp spring clamp pipe clamp welding clamp
+level plumb bob square try square combination square bevel protractor
+tape measure ruler yardstick calipers micrometer depth gauge feeler gauge
+sandpaper sandblock sanding belt orbital sander belt sander palm sander
+paintbrush roller tray ladder stepladder extension ladder scaffold
+wheelbarrow crowbar prybar wrecking bar jemmy pickaxe mattock hoe rake
+shovel spade trowel edger cultivator weeder aerator sprinkler hose nozzle
+sickle scythe machete billhook axe hatchet tomahawk splitting maul wedge
+anvil forge bellows tongs hammer fuller swage punch chisel
+bolt nut washer rivet nail screw tack brad staple anchor dowel peg pin
+hinge latch catch lock padlock deadbolt hasp chain cable rope twine string
+cord thread wire filament strand fiber yarn lace ribbon tape band strap
+buckle clasp clip snap hook eye loop knot hitch bend splice whipping
+nails kit toolbox workbench sawhorse vice grommet rivets
+fire extinguisher smoke alarm carbon monoxide detector fire blanket hose
+first aid kit bandage plaster gauze antiseptic ointment ointments cream
+medicine pill tablet capsule syrup drops injection syringe needle vial
+thermometer stethoscope blood pressure cuff otoscope reflex hammer
+"""
+
+REAL_WORDS_5000_D = """
+atom molecule electron proton neutron nucleus quark lepton boson fermion
+hadron baryon meson gluon photon neutrino graviton higgs antimatter
+element isotope ion cation anion radical compound mixture solution solvent
+solute suspension colloid emulsion alloy amalgam oxide hydroxide hydride
+nitride carbide sulfide sulfate nitrate phosphate carbonate bicarbonate
+chloride fluoride bromide iodide acetate citrate oxalate formate benzoate
+acid base alkali alkaline salt ester ether aldehyde ketone alcohol phenol
+amine amide amino peptide protein enzyme catalyst inhibitor promoter
+reagent substrate product reactant equilibrium kinetics thermodynamics
+enthalpy entropy gibbs freehelmholtz activation catalyst kinetics rate
+order molecular atomic orbital electron cloud valence shell subshell
+quantum number spin orbital angular azimuthal magnetic principal
+pauli exclusion hund aufbau hunds rule heisenberg uncertainty schrodinger
+planck bohr rutherford dalton thomson curie becquerel faraday avogadro
+mendeleev lavoisier priestley cavendish boyle charles gaylussac
+element hydrogen helium lithium beryllium boron carbon nitrogen oxygen
+fluorine neon sodium magnesium aluminum silicon phosphorus sulfur chlorine
+argon potassium calcium scandium titanium vanadium chromium manganese
+iron cobalt nickel copper zinc gallium germanium arsenic selenium bromine
+krypton rubidium strontium yttrium zirconium niobium molybdenum technetium
+ruthenium rhodium palladium silver cadmium indium tin antimony tellurium
+iodine xenon cesium barium lanthanum cerium praseodymium neodymium
+promethium samarium europium gadolinium terbium dysprosium holmium erbium
+thulium ytterbium lutetium hafnium tantalum tungsten rhenium osmium iridium
+platinum gold mercury thallium lead bismuth polonium astatine radon
+francium radium actinium thorium protactinium uranium neptunium plutonium
+americium curium berkelium californium einsteinium fermium mendelevium
+nobelium lawrencium rutherfordium dubnium seaborgium bohrium hassium
+meitnerium darmstadtium roentgenium copernicium nihonium flerovium
+moscovium livermorium tennessine oganesson
+
+physics mechanics dynamics kinematics statics thermodynamics electromagnetism
+optics acoustics relativity quantum cosmology astrophysics geophysics
+biophysics particle nuclearparticle nuclear condensedmatter solidstate
+plasma cryogenics superconductivity superfluidity magnetism electricity
+voltage current resistance capacitance inductance impedance frequency
+wavelength amplitude resonance interference diffraction refraction
+reflection polarization dispersion scattering absorption emission
+radiation convection conduction evaporation condensation sublimation
+deposition ionization recombination fission fusion annihilation
+annihilationpair creation redshift blueshift parsec lightyear angstrom
+bohrradius plancklength plancktime planckmass planckcharge
+newton joule watt pascal hertz coulomb volt ampere ohm farad henry weber
+tesla siemens katal lumen lux becquerel gray sievert katal degree
+kelvin celsius fahrenheit rankine
+acceleration velocity displacement momentum inertia gravity gravitation
+mass weight force torque angular linear centrifugal centripetal
+friction tension compression shear torsion elasticity plasticity
+viscosity density pressure buoyancy archimedes bernoulli venturi
+turbulence laminar streamline reynolds mach speedofsound speedoflight
+kinetic potential thermal chemical nuclear elastic inelastic
+
+biology botany zoology ecology genetics evolution taxonomy anatomy
+physiology cytology histology embryology microbiology mycology virology
+bacteriology parasitology immunology endocrinology neurology cardiology
+dermatology hematology oncology pathology pharmacology toxicology
+epidemiology biochemistry molecular cellular developmental
+cell membrane nucleus cytoplasm mitochondria ribosome golgi endoplasmic
+reticulum lysosome peroxisome vacuole chloroplast cytoskeleton centriole
+nucleolus chromatin chromosome gene allele genotype phenotype genome
+dna rna mrna trna rrna codon anticodon transcription translation
+replication mutation recombination crossingover meiosis mitosis
+haploid diploid polyploid zygote gamete sperm egg embryo fetus
+blastula gastrula larva pupa nymph metamorphosis
+species genus family order class phylum kingdom domain
+darwin wallace mendel lamarck linnaeus huxley pasteur koch fleming
+watson crick franklin wilkins darwinian lamarckian mendelian
+photosynthesis respiration fermentation glycolysis krebs calvin
+atp adp nad nadp fadh coenzyme
+organ system tissue organ organism population community ecosystem
+biome biosphere habitat niche symbiosis mutualism commensalism
+parasitism predation competition succession adaptation naturalselection
+speciation extinction biodiversity conservation preservation
+taxonomy cladistics phylogeny phylogenetics molecularcellular
+
+chemistry organic inorganic physical analytical biochemistry
+electrochemistry photochemistry thermochemistry radiochemistry
+polymer ceramics composite crystallography spectroscopy spectrometry
+chromatography titration filtration distillation extraction
+precipitation crystallization sublimation centrifugation electrophoresis
+microscopy electronmicroscopy fluorescence phosphorescence
+nmr infrared ultraviolet visible raman xray crystallography
+massspectrometry gaschromatography liquidchromatography hplc
+titration burette pipette flask beaker cylinder vial cuvette
+crucible mortar pestle retort condenser still alembic
+ph scale buffer solution concentration molarity molality normality
+mole avogadro molality molarity ppm ppb normality equivalent
+polarity electronegativity dipole hydrogenbond vanderwaals covalent
+ionic metallic coordinate dipoleinduced london dispersion
+sigma pi bond orbital hybridization sp sp2 sp3 vsepr lewis
+resonance aromatic aliphatic saturated unsaturated alkane alkene
+alkyne cycloalkane benzene toluene xylene naphthalene anthracene
+methane ethane propane butane pentane hexane heptane octane nonane
+decane undecane dodecane methanol ethanol propanol butanol glycerol
+ethylene glycol formaldehyde acetone acetic acid citric acid lactic
+acid uric acid amino acid fatty acid nucleic acid
+
+astronomy universe galaxy nebula star planet moon asteroid comet meteor
+meteorite meteoroid quasar pulsar blackhole wormhole supernova
+redgiant white dwarf neutron star brown dwarf mainsequence
+cosmology cosmogony cosmology darkmatter darkenergy
+milky way andromeda orion sagittarius scorpius cygnus lyra
+telescope observatory planetarium satellite probe rover lander
+mercury venus earth mars jupiter saturn uranus neptune pluto
+ceres eris makemake haumea sedna
+titan io europa ganymede callisto enceladus mimas titania oberon
+triton charon phobos deimos
+apollo artemis gemini mercury gemini voyager pioneer cassini galileo
+hubble webb chandra spitzer kepler tess hubble
+orbit trajectory apogee perigee perihelion aphelion equinox solstice
+eclipse transit occultation conjunction opposition elongation
+zodiac constellations asterism ecliptic celestial equator
+geology mineral rock igneous sedimentary metamorphic
+magma lava basalt granite marble slate schist gneiss quartz feldspar
+mica calcite dolomite halite gypsum fluorite apatite olivine
+plate tectonics continental drift pangaea gondwana laurasia
+earthquake volcano tsunami fault epicenter magnitude richter mercalli
+sediment erosion weathering deposition fossil fossilization
+stratigraphy paleontology paleozoic mesozoic cenozoic precambrian
+jurassic cretaceous triassic permian carboniferous devonian silurian
+ordovician cambrian holocene pleistocene pliocene miocene oligocene
+eocene paleocene
+"""
+
+REAL_WORDS_5000_E = """
+program code software hardware compiler interpreter debugger linker
+loader assembler disassembler bytecode opcode operand register
+stack heap queue deque list array vector matrix tensor grid
+tree graph trie btree rbtree avl avltree hashtable hashmap
+dictionary set multiset bag tuple record struct union enum
+pointer reference handle iterator generator coroutine closure
+lambda function method procedure routine subroutine macro
+class object instance module package namespace scope closure
+inheritance polymorphism encapsulation abstraction interface
+override overload virtual abstract static final const volatile
+public private protected internal friend
+variable constant literal identifier keyword operator
+semicolon colon comma parentheses brackets braces quotes
+escapesequence rawstring fstring bytes string char integer
+float double decimal boolean null nil none void undefined nan
+infinite precision arbitrary fixedpoint bignum
+integer unsigned signed short long longlong byte word dword qword
+bit nibble byte kilobyte megabyte gigabyte terabyte petabyte exabyte
+zettabyte yottabyte kibibyte mebibyte gibibyte tebibyte
+loop for while dowhile foreach repeat until break continue goto
+branch if else elseif switch case default fallthrough
+try catch finally throw raise rethrow exception error warning
+assertion precondition postcondition invariant contract
+parallel concurrent asynchronous synchronous blocking nonblocking
+thread process fiber green thread coroutine actor
+mutex semaphore monitor barrier latch atomic volatile
+lock spinlock reentrant readerwriter lockfree waitfree
+deadlock livelock starvation racecondition critical section
+signal wait notify broadcast rendezvous mailbox channel
+promise future async await yield
+json xml yaml toml ini csv tsv markdown html xhtml dhtml sgml
+css sass less stylus scss sass
+sql nosql mongodb postgres mysql sqlite oracle redis cassandra
+neo4j elasticsearch dynamodb
+http https ftp sftp ssh scp telnet smtp pop3 imap ldap
+dhcp dns tcp udp ip icmp arp bgp ospf rip igrp eigrp
+rest soap graphql grpc rpc xmlrpc jsonrpc websocket
+url uri urn endpoint path query fragment scheme host port
+cookie session token jwt oauth saml openid kerberos
+hash salt encryption decryption cipher plaintext ciphertext
+symmetric asymmetric publickey privatekey rsa dsa ecdsa diffiehellman
+aes des 3des blowfish twofish serpent rc4 rc5 chacha salsa
+sha md5 crc checksum hmac mac integrity authenticity nonrepudiation
+certificate authority ca x509 pem der pfx p12 pki truststore keystore
+ssl tls handshake cipher suite forward secrecy perfectforwardsecrecy
+
+python java javascript typescript c cpp csharp rust go ruby php
+swift kotlin scala perl lua r julia haskell erlang elixir clojure
+lisp scheme racket ocaml fsharp fortran cobol pascal delphi basic
+vb vba vbscript powershell bash zsh fish csh ksh sh batch
+assembly masm nasm gas llvm ir
+html css javascript react angular vue svelte solid qwik
+ember backbone knockout meteor
+node deno bun npm yarn pnpm webpack rollup parcel vite esbuild
+babel typescript flow
+django flask fastapi pyramid bottle tornado
+rails sinatra hanami
+spring springboot micronode quarkus vertx
+laravel symfony codeigniter cakephp
+express koa hapi nestjs fastify
+aspnet dotnetcore blazor
+phoenix plug cowboy
+jaxrs resteasy dropwizard
+flask fastapi celery dramatiq rq
+tensorflow pytorch keras jax mxnet caffe theano cntk
+numpy scipy pandas matplotlib seaborn plotly bokeh altair
+sklearn xgboost lightgbm catboost statsmodels
+opencv pillow scikitimage mahotas simpleitk
+nltk spacy gensim transformers huggingface
+numpy scipy sympy networkx igraph
+docker kubernetes helm kompose kustomize
+terraform pulumi cloudformation ansible chef puppet salt
+jenkins gitlab circleci travis actions argo tekton spinnaker
+prometheus grafana datadog newrelic splunk elk
+nagios zabbix sensu icinga
+git mercurial subversion bazaar fossil perforce cvs
+github gitlab bitbucket sourceforge azure
+linux unix bsd solaris aix hpux irix
+debian ubuntu fedora centos rhel arch gentoo alpine suse opensuse
+redhat rocky alma mint kubuntu xubuntu lubuntu
+windows macos android ios chromeos
+bash zsh powershell cmd terminal console shell
+sed awk grep egrep fgrep find xargs sort uniq cut paste join
+tr wc head tail cat tac less more vi vim emacs nano pico ed
+tar gzip bzip xz zip unzip 7z rar lz4 zstd brotli
+curl wget rsync scp sftp ssh telnet netcat socat
+ps top htop atop iotop iftop nethogs glances
+kill pkill pgrep fg bg jobs nohup screen tmux
+cron at anacron systemd init upstart sysv launchd
+mount umount fdisk mkfs fsck df du lsblk blkid
+lvm raid zfs btrfs ext2 ext3 ext4 xfs jfs reiserfs
+iptables nftables ufw firewalld selinux apparmor
+nginx apache caddy haproxy traefik envoy varnish squid
+redis memcached rabbitmq kafka activemq zeromq nats pulsar
+elasticsearch solr lucene sphinx opensearch
+postgres mysql mariadb sqlite oracle sqlserver db2
+mongodb cassandra scylla couchdb ravendb neo4j orientdb
+s3 gcs azureblob minio ceph glusterfs nfs cifs smb
+vpn ipsec openvpn wireguard tailscale zerotier
+dns bind powerdns knot unbound coredns
+loadbalancer reverse proxy gateway firewall router switch hub
+cdn edge fog mist dew cloud serverless faas paas iaas saas
+lambda functions azurefunctions cloudfunctions
+ec2 s3 rds dynamodb sqs sns kinesis
+vm virtualmachine hypervisor esxi xen kvm qemu virtualbox
+vagrant packer docker podman lxc lxd
+orchestration swarm mesos marathon nomad rancher
+"""
+
+REAL_WORDS_5000_F = """
+apple apricot avocado banana blackberry blueberry boysenberry
+cantaloupe cherry coconut cranberry currant date dragonfruit durian
+elderberry fig gooseberry grape grapefruit guava honeydew huckleberry
+jackfruit kiwi kumquat lemon lime lychee mandarin mango mulberry
+nectarine orange papaya passionfruit peach pear persimmon pineapple
+plantain plum pomegranate quince raspberry starfruit strawberry
+tangelo tangerine watermelon clementine satsuma ugli yuzu bergamot
+kumquat citron pomelo mandarin kaffir
+artichoke asparagus avocado basil beetroot broccoli cabbage carrot
+cauliflower celery chard chickpea chili cilantro collard corn cucumber
+daikon dill eggplant endive fennel fenugreek garlic ginger horseradish
+jicama kale kohlrabi leek lentil lettuce mustard okra onion parsley
+parsnip pea peanut pepper potato pumpkin radicchio radish rhubarb
+rutabaga scallion shallot spinach squash tomato turnip wasabi
+watercress yam zucchini arugula bokchoy broccolini broccoflower
+cabbage carrot cassava celeriac chayote chicory collards courgette
+cress cucumber daikon dandelion fennel gai lan jicama kale kohlrabi
+mizuna mustard napa okra parsley parsnip pea pepper purslane
+radicchio radish rapini romaine rutabaga scallion sea kale shallot
+sorrel spinach sprouts squash swisschard tatsoi tomatillo turnip
+watercress yam zucchini
+almond amaranth barley buckwheat cashew chestnut chia chickpea
+coconut couscous farro flax hazelnut hemp kamut macadamia millet
+oat pecan pistachio quinoa rice rye sesame sorghum spelt sunflower
+tahini teff triticale walnut wheat wildrice
+basil bayleaf cardamom cayenne chili chives cinnamon clove coriander
+cumin curry dill fennel fenugreek galangal garlic ginger horseradish
+juniper lemongrass mace marjoram mustard nutmeg oregano paprika
+parsley peppercorn rosemary saffron sage savory staranise sumac
+tarragon thyme turmeric vanilla zaatar
+bread baguette bagel brioche ciabatta croissant focaccia naan pita
+rye sourdough tortilla wrap chapati paratha roti matzo pumpernickel
+marble rye wholewheat multigrain breadstick roll bun bap brioche
+cookie biscuit cracker wafer macaroon macaron shortbread gingerbread
+brownie blondie bar flapjack granola energybar
+cake cheesecake poundcake sponge angelcake cupcake muffin scone
+teacake bundt cake layer cake pancake waffle crepe blintz blini
+doughnut donut beignet fritter churro funnel cake
+pie tart quiche galette turnover strudel cobbler crumble crisp
+pastry danish puff phyllo filo choux
+pudding custard flan brulee mousse souffle parfait trifle tiramisu
+cannoli profiterole eclair macaron baklava halva lokum marzipan
+nougat fudge caramel toffee praline brittle taffy nougat
+icecream gelato sorbet sherbet frozenyogurt semifreddo granita
+chocolate truffle ganache bark candy confection lollipop gumdrop
+jellybean jelly gummy marshmallow nougat licorice
+sugar honey maple molasses syrup agave stevia saccharin aspartame
+sucrose fructose glucose lactose maltose dextrose
+salt pepper paprika cayenne chili cumin coriander cardamom
+vanilla extract essence zest
+coffee espresso cappuccino latte macchiato americano mocha
+flatwhite cortado ristretto affogato frappe coldbrew
+tea black green white oolong puer matcha sencha genmaicha
+chai rooibos herbal chamomile peppermint hibiscus jasmine
+juice smoothie shake frappe slushie mocktail cocktail
+cola lemonade icedtea milkshake eggnog cider
+wine red white rose sparkling champagne prosecco cava
+beer ale lager stout porter pilsner ipa saison bock
+whiskey bourbon scotch rye brandy cognac armagnac
+vodka gin rum tequila mezcal sake soju baijiu
+vermouth aperitif digestif liqueur amaretto kahlua baileys
+cuisine french italian spanish greek portuguese german austrian
+swiss belgian dutch scandinavian nordic russian polish hungarian
+czech slovak romanian bulgarian serbian croatian bosnian slovenian
+turkish lebanese syrian israeli palestinian egyptian moroccan
+tunisian algerian libyan persian iraqi saudi yemeni omani
+emirati qatari kuwaiti bahraini
+indian pakistani bangladeshi srilankan nepali bhutanese
+tibetan burmese thai vietnamese cambodian laotian malaysian
+indonesian filipino chinese japanese korean mongolian
+australian newzealand polynesian melanesian micronesian
+mexican guatemalan honduran salvadoran nicaraguan costarican
+panamanian colombian venezuelan ecuadorian peruvian bolivian
+chilean argentine uruguayan paraguayan brazilian
+cuban haitian dominican jamaican trinidadian bahamian barbadian
+american cajun creole texmex soulfood southern newengland
+california pacificnorthwest southwestern
+sushi sashimi nigiri maki temaki uramaki onigiri donburi
+ramen udon soba yakisoba okonomiyaki takoyaki yakitori
+tempura tonkatsu katsucurry bento bentobox
+padthai tom yum greencurry redcurry massaman panang
+pho banhmi springrolls summerrolls dumpling gyoza potsticker
+wonton shumai har gow baozhi xiaolongbao
+kimchi bibimbap bulgogi japchae tteokbokki kimbap
+naan dosa idli vada sambar rasam curry masala tandoori
+biryani pulao khichdi samosa pakora chaat paneer
+hummus tabbouleh falafel shawarma kebab kofta dolma
+baba ganoush tahini halva baklava kofta
+pizza pasta risotto gnocchi lasagna ravioli tortellini
+cannelloni manicotti fettuccine linguine spaghetti penne
+rigatoni fusilli farfalle orzo orecchiette cavatelli
+carbonara amatriciana bolognese alfredo pesto marinara
+puttanesca arrabbiata primavera vongole
+paella tapas pintxos gazpacho tortilla chorizo jamon
+croquettes empanada arepa pupusa tamale enchilada
+quesadilla taco burrito chimichanga fajita nachos
+guacamole salsa pico ceviche tostada
+moussaka souvlaki gyro spanakopita dolmades horiatiki
+bratwurst knockwurst weisswurst schnitzel sauerbraten
+sauerbraten rouladen spatzle kartoffelsalat
+coq au vin bouillabaisse cassoulet ratatouille
+nicoise bourguignon confit terrine pate rillettes
+fish and chips bangers mash shepherdspie cottagepie
+yorkshire pudding toadinthehole bubbleandsqueak
+haggis blackpudding white pudding
+"""
+
+REAL_WORDS_5000_G = """
+soccer football basketball baseball softball tennis volleyball
+badminton squash racquetball handball cricket rugby lacrosse
+hockey icehockey fieldhockey roller hockey street hockey
+golf mini golf discgolf footgolf
+boxing kickboxing muaythai taekwondo karate judo aikido
+jiujitsu kungfu wushu kravmaga capoeira hapkido sambo
+wrestling grecoroman freestyle sumo
+fencing archery shooting biathlon triathlon pentathlon decathlon
+marathon ultramarathon halfmarathon sprint hurdles steeplechase
+relay medley cross country track field
+cycling bmx mountainbiking roadcycling track cycling cyclocross
+swimming diving waterpolo synchronized swimming openwater
+rowing kayaking canoeing paddleboarding surfing windsurfing
+kitesurfing wakeboarding waterskiing jetskiing parasailing
+sailing yachting dinghy catamaran windsurfing
+skiing snowboarding crosscountry downhill slalom giant slalom
+super g freestyle moguls halfpipe snowboardcross skicross
+ski jumping biathlon luge bobsled skeleton curling
+figure skating speed skating short track pairs dance
+gymnastics artistic rhythmic trampoline tumbling acrobatics
+cheerleading dance ballet jazz tap modern hiphop breakdancing
+pilates yoga meditation aerobics zumba spin kickboxing
+rockclimbing bouldering sportclimbing freeclimbing aidclimbing
+mountaineering alpinism iceclimbing via ferrata canyoning
+hiking trekking backpacking camping glamping
+orienteering geocaching letterboxing
+skateboarding longboarding rollerblading rollerskating
+parkour freerunning tricking
+basejumping skydiving paragliding hanggliding wingsuit
+bungeejumping zip lining zorbing
+motorsport formula1 nascar indycar rally rallycross motocross
+supercross enduro trials drag racing stock car karting
+equestrian dressage showjumping eventing polo polocrosse
+rodeo bullriding broncriding barrelracing roping
+dog racing greyhound sled racing
+falconry hunting fishing fly fishing ice fishing
+spearfishing bowfishing angling trawling
+chess checkers draughts backgammon go shogi xiangqi
+checkers mahjong dominoes dice poker bridge rummy
+blackjack baccarat roulette craps slotmachine
+solitaire hearts spades bridge whist euchre
+cricket baseball softball rounders kickball
+ultimate frisbee disc golf hacky sack footbag
+paintball airsoft lasertag escape room
+billiards pool snooker carom bar billiards
+darts foosball air hockey shuffleboard
+bowling tenpin ninepin fivepin candlepin lawn bowls
+bocce petanque curling
+cricket rugby aussierules gaelic american football canadian
+cricket test cricket oneday twenty20 ipl
+golf pga lpga rydercup majors
+masters open championship pga lpga
+olympics paralympics commonwealth asian panamerican
+worldcup euro copa america champions
+superbowl worldseries stanleycup nba finals
+premier league laliga seriea bundesliga ligue1
+mls nwsl nfl nba mlb nhl wnba
+fifa uefa concacaf conmebol caf afc ofc
+wimbledon usopen frenchopen australianopen
+grandslam masters cup davis cup fed cup
+formula1 motogp nascar indycar wec
+tourdefrance giro vuelta parisroubaix milansanremo
+bostonmarathon newyorkmarathon berlinmarathon londonmarathon
+ironman kona half ironman
+crossfit games toughmudder spartan race
+"""
+
+REAL_WORDS_5000_J = """
+music melody harmony rhythm tempo beat meter measure bar note
+pitch tone timbre dynamics articulation phrasing cadence
+scale mode key signature chord arpeggio triad seventh
+major minor diminished augmented suspended dominant subdominant
+tonic supertonic mediant submediant leading
+interval octave fifth fourth third second sixth seventh unison
+sharp flat natural accidental rest slur tie staccato legato
+marcato tenuto accent fermata trill mordent grace turn
+genres classical baroque romantic impressionist modern contemporary
+medieval renaissance rococo classical romantic postromantic
+twentieth century serial atonal dodecaphonic aleatoric
+minimalist postminimalist spectral electroacoustic
+opera operetta oratorio cantata mass requiem motet madrigal
+symphony concerto sonata suite overture prelude fugue toccata
+invention rondo theme variation passacaglia chaconne
+chamber quartet trio quintet sextet septet octet
+string quartet piano trio wind quintet brass quintet
+solo duet duo ensemble orchestra band symphony philharmonic
+conductor concertmaster section principal soloist accompanist
+composer arranger orchestrator transcriber
+violin viola cello doublebass harp guitar lute mandolin banjo
+ukulele balalaika sitar sarod veena koto shamisen pipa erhu
+piano fortepiano harpsichord clavichord organ harmonium
+accordion concertina bandoneon melodica
+flute piccolo recorder fife ocarina panpipes
+oboe englishhorn bassoon contrabassoon clarinet bassclarinet
+saxophone soprano alto tenor baritone bass
+trumpet cornet flugelhorn frenchhorn trombone bass trombone
+tuba euphonium bugle
+drum timpani bassdrum snaredrum tomtom bongo conga djembe
+tabla darabuka taiko talkingdrum timbales
+cymbals hihat ride crash splash china gong tamtam
+triangle woodblock temple blocks claves castanets maracas
+guiro cabasa shakers cowbell agogo bell
+xylophone marimba glockenspiel vibraphone celesta
+chimes tubular bells crotales anvil
+piano keyboard synth synthesizer moog roland korg yamaha
+sampler sequencer daw workstation groovebox
+theremin ondes martenot trautonium telharmonium
+jazz swing bebop hardbop cool jazz modal free jazz fusion
+smooth jazz acid jazz nu jazz dixieland ragtime
+blues delta chicago memphis piedmont texas
+country bluegrass honky tonk outlaw western swing
+rock classic rock hard rock progressive rock punk newwave
+postpunk gothic industrial grunge alternative indie
+metal heavy speed thrash death black doom power prog
+pop synthpop dancepop electropop kpop jpop cpop
+hiphop rap trap drill grime crunk snap
+rnb soul funk disco house techno trance dubstep drumandbass
+garage grime bassline jungle breakbeat trip hop downtempo
+ambient newage world ethnic folk traditional
+reggae dancehall ska rocksteady dub
+calypso soca merengue bachata salsa cumbia tango
+flamenco rumba fado sevillanas
+gospel spiritual christian contemporary worship
+chant gregorian byzantine coptic anglican
+qawwali bhajan kirtan raga thumri ghazal
+gamelan gagaku enka minyo
+theater drama play stage performance act scene
+comedy tragedy farce melodrama musical vaudeville
+burlesque cabaret revue pantomime commedia
+puppetry marionette shadow puppet
+opera buffa seria verismo belcanto
+ballet modern postmodern contemporary
+choreography choreographer dancer troupe corps
+arts painting sculpture drawing printmaking photography
+ceramics pottery glasswork metalwork woodwork textiles
+calligraphy illumination mosaic fresco tempera
+oil acrylic watercolor gouache pastel charcoal graphite
+ink wash pen brush
+renaissance baroque rococo neoclassical romantic
+realism naturalism impressionism postimpressionism
+symbolism artnouveau artdeco fauvism expressionism
+cubism futurism dada surrealism abstract expressionism
+popart opart minimalism conceptualism postmodern
+performance art installation video art digital art
+net art bio art
+museum gallery exhibition curator curator artist
+critic collector patron dealer auctioneer
+"""
+
+REAL_WORDS_5000_K = """
+economy economics micro macro supply demand equilibrium elasticity
+inflation deflation recession depression boom bust stagflation
+gdp gnp nnp nni cpi ppi pce
+fiscal monetary policy taxation subsidy tariff quota embargo
+sanctions austerity stimulus bailout rescue merger acquisition
+bank banking central reserve federal treasury
+loan mortgage credit debit overdraft interest principal
+bond stock equity share dividend yield coupon maturity
+bull bear market portfolio diversification asset liability
+capital revenue profit loss margin markup discount
+revenue expense income outgo cashflow balance sheet
+asset liability equity retained earnings
+audit accounting bookkeeping ledger journal trial balance
+depreciation amortization accrual cash basis
+invoice receipt statement voucher cheque check
+wire transfer ach swift iban bic routing
+creditcard debitcard atm pin chip
+insurance policy premium deductible copay claim
+pension annuity 401k ira roth
+stock exchange nyse nasdaq lse tse hkex
+commodity futures options swaps derivatives
+forex currency exchange rate
+bitcoin ethereum litecoin ripple dogecoin
+blockchain crypto wallet mining staking
+defi nft dao web3
+startup entrepreneur venture capital seed round
+angel investor series ipo spac
+ceo cfo coo cto cio cmo chro
+board chairman director shareholder stakeholder
+corporation llc inc plc partnership sole proprietorship
+nonprofit ngo charity foundation trust
+stockholder dividend proxy merger acquisition
+hostile friendly leveraged buyout
+
+law legal justice court judge jury attorney lawyer
+prosecutor defense plaintiff defendant
+civil criminal constitutional administrative
+tort contract property family criminal
+litigation arbitration mediation negotiation settlement
+appeal appellate supreme trial district circuit
+statute ordinance regulation code
+constitution amendment bill act
+verdict sentence ruling judgment decree
+plaintiff appellant appellee petitioner respondent
+subpoena warrant affidavit deposition testimony
+evidence exhibit witness expert
+felony misdemeanor infraction violation
+theft burglary robbery larceny embezzlement fraud
+forgery counterfeiting perjury contempt obstruction
+assault battery homicide manslaughter murder
+arson vandalism trespass
+custody alimony childsupport visitation
+divorce annulment separation
+adoption guardianship foster
+will testament trust estate probate
+inheritance heir beneficiary executor
+trademark copyright patent trade secret
+intellectual property licensing royalty
+antitrust monopoly cartel collusion
+gdpr hipaa sox ferpa coppa
+compliance regulation oversight
+government politics policy
+democracy republic monarchy oligarchy
+theocracy dictatorship autocracy totalitarian
+authoritarian anarchist libertarian socialist
+communist capitalist fascist
+parliament congress senate house
+president prime minister chancellor
+governor mayor senator representative
+election campaign candidate voter ballot
+primary caucus convention
+liberal conservative moderate progressive
+left right centrist populist
+federal state local municipal
+constitution amendment bill law
+executive legislative judicial
+bureaucracy agency department ministry
+embassy consulate ambassador diplomat
+treaty alliance agreement accord
+nato un eu au asean brics g7 g20 opec
+sanctions embargo blockade
+war peace ceasefire armistice
+treaty negotiation summit
+refugee immigrant emigrant migrant
+asylum visa passport citizenship
+naturalization deportation extradition
+
+business commerce trade retail wholesale
+manufacturing production assembly
+logistics supply chain distribution
+warehouse inventory stock procurement
+vendor supplier distributor retailer
+b2b b2c c2c d2c marketplace
+ecommerce shopping cart checkout
+payment gateway merchant acquirer
+marketing advertising branding
+campaign promotion discount coupon
+seo sem ppc cpc cpm cpa roi
+social media influencer content
+pr public relations press release
+customer client consumer buyer
+satisfaction retention loyalty churn
+crm erp scm wms tms
+accounting payroll hr recruiting
+onboarding training evaluation
+promotion termination resignation retirement
+salary wage hourly commission bonus
+benefits insurance vacation pto
+hiring firing layoff furlough
+interview resume cv coverletter
+reference portfolio probation
+"""
+
+REAL_WORDS_5000_L = """
+accept acknowledge admit adopt advocate affirm agree aid aim allow
+alter amend amplify analyze answer anticipate apologize appeal appear
+apply appoint appreciate approach approve argue arrange arrive ask
+assert assess assign assist assume assure attach attempt attend
+attract authorize avert avoid await awaken
+bake balance ban bargain bathe batter bear beat become beg begin
+behave believe belong bend benefit beseech betray bid bind bite
+blame blend bless blink block blot blow blush boast boil bolster
+bolt bond book boost bore borrow bother bounce bow brace braid
+brake branch brand breathe breed bribe bring broadcast bruise
+brush bubble build bump burn burst bury buy
+calculate calibrate call calm cancel capture care carry carve cast
+catch cause cease celebrate censor center certify chain chair
+challenge change channel charge chart chase chat cheat check cheer
+chew chill chip choke choose chop claim clap clarify clash clasp
+classify clean clear cleave climb cling clip cloak close cloud
+clutch coach coalesce coax code coerce cohabit coil coincide
+collaborate collapse collect collide colonize combine comfort
+command commemorate commence commend comment commit communicate
+commute compact compare compel compensate compete compile complain
+complement complete complicate compliment comply compose comprehend
+compress comprise compromise compute conceal concede conceive
+concentrate conceptualize concern conclude concoct concur condemn
+condense conduct confer confess confide configure confine confirm
+confiscate conflict conform confound confront confuse congratulate
+conjure connect conquer consecrate consent conserve consider
+consign console consolidate conspire constitute constrain construct
+consult consume contact contain contemplate contend content contest
+continue contract contradict contribute contrive control convene
+converge converse convert convey convict convince cook cooperate
+cope copy correct correlate correspond corrode corrupt cough
+counsel count counter cover covet crack crash crave crawl create
+creep criticize critique croon cross crouch crowd crush cry
+cultivate curb cure curl curse curve cut cycle
+damage dance dangle dare darken dart dash daunt dazzle deactivate
+deal debate decant decay deceive decelerate decide decipher
+declare decline decode decompose decorate decouple decrease
+dedicate deduce deface defame default defeat defend defer define
+deflate deflect deform defraud defray defuse defy degrade
+dehydrate deify delay delegate delete deliberate delight deliver
+demand demean demolish demonstrate demote denote denounce dent
+deny depart depend depict deplete deploy deport depose deprive
+depute derail deride derive descend describe desert deserve
+design designate desire despair despise destroy detach detail
+detain detect deter deteriorate determine detest detonate detract
+devalue devastate deviate devise devolve devote devour diagnose
+dictate differentiate diffuse digest digress dilute diminish dine
+dip direct disagree disappear disappoint disapprove disarm discard
+discern discharge discipline disclose discolor disconnect
+discontinue discourage discover discredit discuss disdain
+disentangle disgrace disguise disgust dishearten disinfect
+disintegrate dislike dislocate dismantle dismay dismiss disobey
+dispatch dispel dispense disperse displace display displease
+dispose disprove dispute disqualify disregard disrupt dissolve
+dissuade distill distinguish distort distract distress distribute
+distrust disturb disunite dive diverge divert divide divulge
+dock dodge dominate donate doodle double doubt douse draft drag
+drain dramatize draw dread dream dredge drench dress drift drill
+drink drip drive drizzle droop drop drown drug drum dry dub duck
+dull dumbfound dump duplicate dwell dwindle dye
+earn ease eat eavesdrop ebb echo eclipse economize edge edit
+educate efface effect eject elaborate elapse elect electrify
+elevate elicit eliminate elongate elope elucidate elude emanate
+emancipate embark embarrass embellish embezzle embody embolden
+emboss embrace emerge emigrate emit emphasize employ empower
+empty emulate enact encase enchant encircle enclose encompass
+encounter encourage encroach encrypt endanger endorse endow
+endure energize enforce engage engender engineer engrave engross
+engulf enhance enjoin enlighten enlist enliven enmesh enrage
+enrich enroll ensnare ensure entail entangle enter entertain
+enthrall entice entitle entomb entrap entreat entrench entrust
+enumerate envelop envision envy epitomize equate equip eradicate
+erase erect erode erupt escalate escape escort establish esteem
+estimate etch evade evaluate evaporate evict evoke evolve exact
+exaggerate exalt examine exasperate excavate exceed excel except
+excerpt exchange excite exclaim exclude excuse execute exemplify
+exempt exercise exert exhale exhibit exhilarate exhort exhume
+exonerate exorcise expand expect expedite expel expend experience
+experiment expiate expire explain explode exploit explore export
+expose expound express expunge extend exterminate extinguish
+extol extort extract extrapolate exude exult
+fabricate face facilitate fade falter familiarize fan fancy
+fasten fathom fatigue favor fawn fear feast feature feign
+felicitate fence ferment fertilize fester fetch feud fiddle
+fight figure file fill filter finance find finish fire fish fit
+fix flail flank flap flash flatten flatter flaunt flavor flee
+flicker flinch flip flit float flock flood flop flourish flout
+flow fluctuate flush flutter fly foam focus fold follow fool
+forage forbid force forecast foresee foreshadow forestall
+forfeit forge forget forgive forgo formalize forsake fortify
+forward foster founder fracture fragment frame frank freeze
+frequent fret frighten frolic frustrate fry fulfill fumble
+fume function fund furnish further fuse fuss
+gag gain gallop galvanize gamble garner gasp gather gauge gaze
+generate germinate gesture get giggle give glance glare glean
+glide glimmer glimpse glisten glitter glorify gloss glow glower
+glut gnaw goad gobble govern grab grace graduate grant grapple
+grasp grate gratify gravitate graze grease greet grieve grill
+grimace grin grind grip groan groom grope grouse grovel grow
+growl grumble grunt guarantee guard guess guide gulp gush
+haggle hail halt halve hammer hamper hand handle hang hanker
+happen harass harbor harden harm harmonize harness harrow
+harvest hasten hatch hate haul haunt have hazard heal heap
+hear heat heave heckle hedge heed heighten help herald herd
+hesitate hide hijack hinder hinge hint hire hiss hit hoard
+hoist hold holler honor hook hop hope hover howl huddle hug
+hum humble humiliate hunt hurl hurry hurt hush hustle
+identify idle ignite ignore illuminate illustrate imagine imbibe
+imbue imitate immerse immigrate immunize impair impale impart
+impeach impede impel imperil impersonate implicate implore
+imply import impose impoverish impregnate impress imprint
+imprison improve improvise impute inaugurate incinerate incise
+incite incline include incorporate increase incriminate
+incubate inculcate incur indemnify indent index indicate indict
+indoctrinate induce indulge infect infer infest infiltrate
+inflame inflate inflict influence inform infringe infuriate
+infuse ingest inhabit inhale inherit inhibit initiate inject
+injure inlay innovate inoculate inquire inscribe insert insist
+inspect inspire install instigate instill institute instruct
+insulate insult insure integrate intend intensify interact
+intercept interchange intercede interject interlace interlock
+intermingle interpret interpose interrogate intersect intersperse
+intertwine intervene interview intimidate intone intoxicate
+intrigue introduce intrude inundate invade inveigh invent invert
+invest investigate invigorate invite invoke involve irk iron
+irrigate irritate isolate issue iterate
+jab jam jangle jeer jeopardize jettison jingle jolt jostle jot
+judge juggle jump justify juxtapose
+keep kick kindle kiss kneel knit knock knot know kowtow
+label labor lace lag lament land languish lapse lash last laugh
+launch launder lavish lay lead leak lean leap learn lease
+lecture legalize legislate legitimize lend lengthen lessen
+level levy liberate license lick lie lift lighten like limp
+linger link liquefy lisp listen live load loan loathe lobby
+localize locate lock lodge loiter look loom loosen loot lose
+love lower lubricate lug lull lumber lure lurk
+magnify mail maintain make malign malinger mandate maneuver
+mangle manifest manipulate manufacture march marinate mark
+maroon marshal marvel mask master match materialize matter
+maul mean meander measure mediate meditate meet meld mellow
+melt memorize mend mention merge mesh mesmerize migrate mime
+mimic mince mind mingle minimize mint mirror misappropriate
+misbehave miscalculate misdiagnose misdirect misfire misguide
+mishandle misinform misinterpret misjudge mislead misplace
+misprint misquote misread misrepresent miss misspell mistreat
+mistrust misuse mitigate moan mobilize mock modulate moisten
+mold mollify molt monitor monopolize moor motivate mount mourn
+mouth move mow mumble munch murmur muster mutate mutilate
+mutter
+nag nail name nap narrate narrow navigate neaten necessitate
+negate neglect negotiate nestle nibble niggle nip nod nominate
+normalize notch notify nudge nullify numb nurture
+obey object obligate oblige obliterate obscure observe obsess
+obstruct obtain obtrude obviate occupy occur offend officiate
+offset ogle ooze open operate opine oppose oppress optimize
+orbit orchestrate ordain order organize orient originate
+ornament oscillate oust outdo outgrow outlast outlive
+outmaneuver outnumber outpace outperform outrun outsell
+outshine outsmart outstrip outwit overcome overdo overeat
+overestimate overflow overhaul overhear overheat overlap
+overload overpower overrate overreach override overrule
+oversee overshadow overshoot oversimplify oversleep overstate
+overstay overstep overtake overthrow overturn overvalue
+overwhelm overwork owe own
+pace pacify pack paddle padlock paginate pain paint palliate
+palpitate pamper pander paralyze pardon pare parody parry
+parse partake participate partition pass paste pat patch patent
+patronize pattern pave pawn pay peck pedal peek peel peep
+penetrate perceive perch percolate perfect perforate perform
+perfume perish permeate permit perpetuate perplex persecute
+persevere persist personalize personify persuade pertain
+perturb peruse pervade pervert petition petrify philosophize
+photograph pick pilfer pilot pinch pine pinpoint pioneer pipe
+pique pitch pity pivot placate place plagiarize plague plan
+plant plaster plead pledge plow pluck plumb plummet plunk ply
+poach point poise polarize police polish pollinate pollute
+ponder populate pore portray pose posit position possess
+postpone postulate pounce pour pout practice praise prance
+prattle pray preach precede precipitate preclude predate
+predict predispose predominate preen preface prefigure prefix
+preheat prejudge prejudice prelude premeditate premiere
+preoccupy prepare preponderate prepossess prescribe preside
+press pressure presume presuppose pretend prevail prevaricate
+prevent preview prey prick prickle prime primp prioritize
+prise proceed proclaim procrastinate procure prod profess
+proffer prognosticate program progress prohibit project
+proliferate prolong promenade promulgate propel prophesy
+propound proscribe prosecute prosper protect protest prove
+provide provoke prowl prune pry publicize pucker puff pulsate
+pulverize pummel punch puncture punish purchase purge purify
+purport purvey push putrefy
+quaff quail quake qualify quantify quarantine quash quaver
+quell quench query quibble quicken quiet quiver quiz quote
+race radiate rally ramble ramp ransack rant rap ratify ration
+rationalize rattle ravage rave ravel reach react read realign
+reap reappear rearrange reassemble reassert reassess reassign
+rebate rebuff rebuke recalibrate recant recap recapture recede
+recharge reciprocate recite reckon reclaim recline recompense
+reconcile reconsider reconstruct recount recoup recreate
+recruit rectify recuperate recur recycle redeem redefine
+redesign redirect rediscover redistribute redouble redound
+redress reek reel refashion refer refill refine reflect
+refract refrain refresh refute regain regenerate regress rehash
+rehearse reimburse rein reinstate reiterate rejoice rejuvenate
+relapse relate relay release relegate relent relinquish relish
+reload relocate remake remarry remedy reminisce remit remodel
+remonstrate remunerate render renew renounce renovate reorder
+reorganize repair repeal repel repent rephrase replace replay
+replenish replicate reply report repose represent repress
+reprimand reprint reproach reproduce reprove repudiate repulse
+request require requisition rescue research resemble resent
+reserve reside resign resist resolve resonate respect respire
+respond rest restart restate restore restrain restrict
+restructure result resurrect retain retaliate retard reteach
+retire retort retract retreat retrieve return reunite reveal
+revel revenge reverberate revere reverse revert review revile
+revise revive revoke revolt revolutionize revolve reward rhyme
+ride ridicule ring rinse riot ripen ripple rise risk rival
+rivet roam roar roast rob rock roll romp rotate rouse rove rub
+ruffle ruin rule ruminate rummage run rupture rush rustle
+sabotage sadden saddle safeguard sail salivate sally salute
+sanctify sanction sanitize sap sashay satiate satirize satisfy
+saturate saunter save savor say scald scale scamper scan
+scandalize scar scare scavenge scatter scold scoop scoot scorch
+score scorn scour scout scowl scramble scrap scrape scratch
+scrawl scream screen screw scribble scrimp scroll scrounge
+scrub scrutinize scuff sculpt scurry seal search season seat
+secede seclude secrete secure sedate seduce seep seethe
+segregate seize select sell send sense separate sequester
+serenade serve set settle sever sew shackle shake shame shape
+share sharpen shatter shave shear sheathe shed shelter shelve
+shepherd shield shift shine ship shirk shiver shock shoot shop
+shore shorten shout shove shovel show shred shriek shrink
+shroud shrug shuck shudder shuffle shun shunt shut shutter
+sicken sidestep sift sigh sight signify silence simmer simplify
+simulate sing singe sink sip situate sketch skew skid skim
+skimp skirmish skulk slack slam slander slant slash slate
+slaughter slay sled sleep slice slide slight sling slink slip
+slit slither slog slosh slouch slow slug slumber slump smack
+smash smear smell smite smile smolder smoke smother smudge
+smuggle snag snap snarl snatch sneak sneer sniff snip snooze
+snore snort snub snuff soak soar sober socialize soften solder
+solicit solidify solve soothe sort sough sow span spark sparkle
+spatter spawn speak specialize specify speckle speculate spew
+spike spill spin spiral spit splash splay splice splinter
+split spoil sponsor spook spool spout sprain sprawl spray
+spread sprig sprinkle sprint sprout spruce spur spurn sputter
+spy squabble squander squat squawk squeak squeal squelch
+squint squirm squirt stab stabilize stack stagger stagnate
+stain stammer stamp stampede stand standardize stare start
+startle starve stash stave stay steady steal steam steep
+steer stem stencil step stereotype sterilize stick stifle
+stimulate sting stipulate stir stitch stock stoke stomp stoop
+stop store storm stow straddle straggle straighten strain
+strangle strategize stray streak stream strengthen stress
+stretch strew stride strike string strip strive stroke stroll
+structure struggle strut stub study stuff stumble stun stupefy
+stutter style subdue submerge subordinate submit subscribe
+subside subsidize subsist substantiate substitute subsume
+subtract subvert succeed succor succumb suck suffice suffocate
+suggest suit sulk sully summarize summon sup supercharge
+supersede supervise supplant supplement supplicate supply
+support suppose suppress surge surmise surmount surpass
+surrender surround survey survive suspect suspend sustain
+swallow swamp swat sway swear sweat sweep sweeten swell
+swelter swerve swindle swing swirl swoop symbolize sympathize
+synchronize syndicate synthesize systematize
+tabulate tackle tag tail tailor taint take talk tally tame
+tamper tang tangle tarnish tarry taste tattle taunt teach tear
+tease telegraph telephone televise tell temper tempt tender
+terminate terrify test testify thank thaw think thirst thrash
+threaten thrill thrive throb throng throw thrust thwart tickle
+tidy tie tighten tilt tinker tint tip tire tolerate toil toll
+toot topple torment torture toss totter touch toughen tout tow
+tower toy trace track trade trail train trample transact
+transcend transcribe transfer transgress transmit transmute
+transpire transplant transpose travel traverse travesty tread
+treasure treat treble tremble trench trespass trick trickle
+trifle trigger trim triple trivialize triumph trot trouble
+trounce trudge trump truncate trust try tuck tug tumble tune
+tunnel turn tussle tutor tweak twinkle twirl twist twitch type
+typify tyrannize
+unarm unbend unbind unbolt unburden unbutton uncap unchain
+unclasp uncoil uncover uncross undress undulate unfasten unfold
+unfurl unhinge unify unite unlace unleash unload unlock unmask
+unpack unplug unravel unroll unseat unsettle untangle untie
+unveil unwind unwrap upbraid update upend uphold upgrade
+upholster uproot upset urge usher usurp utilize utter
+vacate vacillate validate valorize value vandalize vanish
+vanquish vaporize vary vault veer vend veneer venerate venture
+verbalize verify vex vibrate victimize vie vilify vindicate
+violate visit visualize vitiate vivify vocalize voice volunteer
+vote vouch vouchsafe vow voyage vulgarize
+wade waffle waft wag wage wager wail wait waive wake walk
+wallow waltz wander wane want warble ward warm warn warp
+warrant wash waste watch water wave waver wax waylay weaken
+wean wear weary weather weave wed wedge weed weep weigh weld
+welcome welter wend whack wheedle wheel wheeze whet whimper
+whine whirl whisk whisper whistle whiten whittle widen wield
+wiggle wilt win wince wind wink winnow wipe wire wither
+withhold withstand wobble woo work worry worship wound
+wrangle wrap wreak wreck wrench wrest wrestle wriggle wring
+wrinkle write writhe
+yank yawn yearn yell yield yodel
+zap zero zip zoom
+"""
+
+print(f"Embedded batches: A, B, C, D, E, F, G, J, K, L "
+      f"({sum(len(b.split()) for b in [REAL_WORDS_5000, REAL_WORDS_5000_B, REAL_WORDS_5000_C, REAL_WORDS_5000_D, REAL_WORDS_5000_E, REAL_WORDS_5000_F, REAL_WORDS_5000_G, REAL_WORDS_5000_J, REAL_WORDS_5000_K, REAL_WORDS_5000_L]):,} tokens)")
+
+# ==================================================================
+# ★ LOAD EXTERNAL BATCHES H, I from ./word_batches/batch_X.txt
 # ==================================================================
 WORD_BATCH_DIR = "word_batches"
-EXTERNAL_BATCH_LETTERS = ["C", "D", "E", "F", "G", "H", "I", "J"]
+# C, D, E, F, G, J, K, L are now EMBEDDED. Only H and I are loaded from disk.
+EXTERNAL_BATCH_LETTERS = ["H", "I"]
 
 def _load_external_batches():
-    """Load word_batches/batch_C.txt .. batch_J.txt if present."""
+    """Load word_batches/batch_H.txt, batch_I.txt if present."""
     loaded = {}
     if not os.path.isdir(WORD_BATCH_DIR):
         return loaded
@@ -919,15 +1937,26 @@ def _load_external_batches():
 
 _EXTERNAL = _load_external_batches()
 
-# Build the tuple of all available batches
-ALL_REAL_WORD_BATCHES = [REAL_WORDS_5000, REAL_WORDS_5000_B]
+# ---- Build the tuple of ALL embedded + external batches ----
+ALL_REAL_WORD_BATCHES = [
+    REAL_WORDS_5000,      # A
+    REAL_WORDS_5000_B,    # B
+    REAL_WORDS_5000_C,    # C
+    REAL_WORDS_5000_D,    # D
+    REAL_WORDS_5000_E,    # E
+    REAL_WORDS_5000_F,    # F
+    REAL_WORDS_5000_G,    # G
+    REAL_WORDS_5000_J,    # J
+    REAL_WORDS_5000_K,    # K
+    REAL_WORDS_5000_L,    # L
+]
 for _letter in EXTERNAL_BATCH_LETTERS:
     if _letter in _EXTERNAL:
         ALL_REAL_WORD_BATCHES.append(_EXTERNAL[_letter])
 ALL_REAL_WORD_BATCHES = tuple(ALL_REAL_WORD_BATCHES)
 
 print(f"Word batches available: {len(ALL_REAL_WORD_BATCHES)} "
-      f"(A, B embedded; {len(_EXTERNAL)} external)")
+      f"(A-L embedded; {len(_EXTERNAL)} external)")
 
 # ==================================================================
 # Dictionary builder
@@ -1064,7 +2093,6 @@ def _build_ai_dictionary():
               "nine","ten","eleven","twelve","twenty","thirty","forty","fifty",
               "hundred","thousand","million","billion"]:
         words.add(n); words.add(n + "th")
-    # ★ Merge in ALL available hard-coded real-word batches
     for blob in ALL_REAL_WORD_BATCHES:
         words |= {w.lower() for w in blob.split() if w.isalpha() and 1 <= len(w) <= 64}
     return words
@@ -1236,7 +2264,7 @@ class UnifiedCompressor:
     def _apply_rle(self, sd, shift):
         bits = []
         self._append_bits(bits, 0b010, 3); self._append_bits(bits, shift, 8)
-        i = 0; n = len(sd)
+        i = 0; n = len               (sd)
         while i < n:
             val = sd[i]; run = 1; i += 1
             while i < n and sd[i] == val: run += 1; i += 1
@@ -1252,7 +2280,7 @@ class UnifiedCompressor:
                 self._append_bits(bits, run - 2, 2); self._append_bits(bits, val, 8)
             elif run <= 12:
                 self._append_bits(bits, 0b10, 2)
-                self._append_bits(bits, run - 6, 3); self._append_bits(bits, val, 8)
+ self._append_bits(bits, run - 6, 3); self._append_bits(bits, val, 8)
         pad = (8 - len(bits) % 8) % 8; self._append_bits(bits, 0, pad)
         out = bytearray()
         for j in range(0, len(bits), 8):
@@ -2079,7 +3107,7 @@ class UnifiedCompressor:
             cl = (p[pos] << 8) | p[pos + 1]; pos += 2
             cb = p[pos:pos + cl]; pos += cl
             b = self._decompress_backend_with_flag(cb)
-            n |= 1; e_ = pow(n, 16777216, 256) | 1; e200 = pow(e_, 200, 256)
+            n |= 1; e_ = pow(n b, 16777216, 256) | 1; e'\x00'200 = pow(e_, 200, 256)
             inv = mod_inv(e200, 256)
             if inv is None: raise TransformError(f"FLT28 {e200}")
             t = bytearray(b)
@@ -2090,7 +3118,7 @@ class UnifiedCompressor:
     def _paqjp_t29(self, data):
         BS = 32
         if not data:
-            ch = b'\x00' * BS; c = self._compress_backend_with_flag(ch)
+            ch = * BS; c = self._compress_backend_with_flag(ch)
             o = bytearray(struct.pack('>I', 0))
             o += b'\x01\x00' + bytes([(len(c) >> 8) & 0xFF, len(c) & 0xFF]) + c
             return bytes(o)
