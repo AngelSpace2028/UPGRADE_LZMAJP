@@ -1,14 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Unified PAQJP+PJP — Dual Method + 12 Downloads + Real Dictionary
-================================================================
-Method A → input.pjp2 : 256 transforms + PAQ/Zstd/Brotli (raw)
-Method B → input.pjp3 : 256 transforms + LZH + SHA-256 (PJP4 magic)
-
-A–Z word batches: 26 letters × 10,000 words = 260,000 words.
+Unified PAQJP+PJP — Dual Method + 12 Downloads + Real Dictionary (LOSSLESS FIX)
+Method A -> input.pjp2 : 256 transforms + PAQ/Zstd/Brotli
+Method B -> input.pjp3 : 256 transforms + LZH + SHA-256
 """
-
 import math, random, decimal, hashlib, base64, heapq, struct, os, tempfile
 import re, sys, subprocess, importlib, time, urllib.request, site
 from typing import Optional, List, Tuple, Dict, Callable, Any
@@ -21,7 +17,6 @@ try:
     import brotli; HAS_BROTLI = True
 except ImportError:
     brotli = None; HAS_BROTLI = False
-
 USE_QUANTUM = False
 HAS_QISKIT = False
 HAS_ZSTD = False
@@ -32,13 +27,11 @@ def _try_import_zstd():
         user_site = site.getusersitepackages()
         if user_site and user_site not in sys.path:
             sys.path.insert(0, user_site)
-    except Exception:
-        pass
+    except Exception: pass
     try:
         import zstandard as zstd
         return zstd
-    except ImportError:
-        return None
+    except ImportError: return None
 
 def _try_install_zstd():
     cmds = [
@@ -54,8 +47,7 @@ def _try_install_zstd():
             subprocess.check_call(cmd)
             if _try_import_zstd() is not None:
                 print("  SUCCESS!"); return True
-        except Exception as e:
-            print(f"  FAILED: {e}")
+        except Exception as e: print(f"  FAILED: {e}")
     return False
 
 print("=" * 70); print("Checking zstandard (MANDATORY backend)..."); print("=" * 70)
@@ -68,7 +60,6 @@ if _zstd is None:
     _zstd = _try_import_zstd()
     if _zstd is None:
         print("FATAL: zstandard installed but not importable."); sys.exit(1)
-
 zstd = _zstd
 zstd_cctx = zstd.ZstdCompressor(level=22)
 zstd_dctx = zstd.ZstdDecompressor()
@@ -111,12 +102,11 @@ else: print("Skipping paq + brotli.")
 
 print(f"\nBackends: zstd=Y paq={'Y' if paq else 'N'} brotli={'Y' if HAS_BROTLI else 'N'}")
 
-PROGNAME = "UnifiedPAQJP+PJP (Dual-Method + 12 Downloads + Real Dict)"
+PROGNAME = "UnifiedPAQJP+PJP (Lossless Edition)"
 
 # ============================ DICTIONARY ============================
 DICT_DIR = "Dictionaries"
 COMBINED_DICTIONARY_FILE = os.path.join(DICT_DIR, "dictionary_combined.txt")
-
 DICTIONARY_FILES = [
     "generated.txt", "eng_news_2005_1M-sentences.txt", "eng_news_2005_1M-words.txt",
     "eng_news_2005_1M-sources.txt", "eng_news_2005_1M-co_n.txt", "eng_news_2005_1M-co_s.txt",
@@ -139,11 +129,6 @@ DICTIONARY_URLS = [
     "https://drive.google.com/uc?export=download&id=1dDdqYDgm7f-smS7KF70Wf0KmyFo-ft1M",
 ]
 
-# ==================================================================
-# ★ SEED WORD BANK — curated real words per starting letter
-# ==================================================================
-# These seed pools + morphological generation produce 10,000 distinct
-# words per letter (A–Z) = 260,000 unique words total.
 _SEED_WORDS = {
 'a':"able about above abroad absence absent absolute absorb abstract abuse accent accept access accident accompany accomplish accord account accurate accuse achieve acid acknowledge acquire across act action active activity actor actress actual adapt add addition address adequate adjust administration admire admit adopt adult advance advantage adventure advertise advice advise affair affect afford afraid africa after afternoon again against age agency agenda agent aggressive ago agree agriculture ahead aid aim air aircraft airline airport alarm album alcohol alive all alliance allow almost alone along already also alter alternative although always amateur amazing among amount analysis analyst ancient and anger angle angry animal anniversary announce annual another answer anxiety any anybody anymore anyone anything anyway anywhere apart apartment apologize apparent appeal appear apple application apply appoint appreciate approach appropriate approve april architecture area argue argument arise arm army around arrange arrest arrival arrive arrow art article artist as ashamed asia aside ask asleep aspect assault assert assess asset assign assist associate assume assure asteroid astonish athlete atlantic atmosphere atom attach attack attempt attend attention attitude attorney attract auction audience august aunt author authority auto autumn available average avoid awake award aware away awful".split(),
 'b':"baby back background backup bacon bad badly bag bake balance ball balloon ban banana band bank bar barely bargain barrel barrier base baseball basic basis basket basketball bath bathroom battery battle bay beach bean bear beard beast beat beautiful beauty because become bed bedroom bee beef beer before beg begin beginning behalf behave behavior behind being belief believe bell belong below belt bench bend beneath benefit beside besides best bet better between beyond bicycle bid big bike bill billion bind biology bird birth birthday biscuit bit bite bitter black blade blame blank blanket blast bleed blend bless blind block blood bloom blow blue board boat body boil bold bomb bond bone bonus book boom boost boot border bore boring born borrow boss both bother bottle bottom bounce bound boundary bow bowl box boy brain branch brand brass brave bread break breakfast breast breath breathe breed brick bridge brief bright brilliant bring broad broken bronze brook brother brown brush bubble bucket budget buffalo bug build building bulb bulk bullet bunch bundle burden bureau burn burst bury bus bush business busy but butter butterfly button buy".split(),
@@ -172,9 +157,7 @@ _SEED_WORDS = {
 'y':"yacht yard yarn yawn year yearn yeast yell yellow yes yesterday yet yield yoga yogurt yoke yolk you young your yours yourself youth".split(),
 'z':"zeal zebra zenith zero zest zigzag zinc zip zipper zodiac zombie zone zoo zoology zoom".split(),
 }
-
 _WORD_TARGET_PER_LETTER = 10000
-
 _PREFIXES = ["", "a", "be", "con", "de", "dis", "en", "ex", "in", "inter",
              "mis", "non", "over", "pre", "pro", "re", "sub", "super", "trans",
              "un", "under", "up", "with", "out", "for", "fore", "counter",
@@ -198,54 +181,33 @@ _SUFFIXES = ["", "s", "es", "ed", "ing", "er", "est", "ly", "ness", "ment",
              "fold", "most", "proof", "free", "worthy"]
 
 def _generate_letter_batch(letter: str, target: int = _WORD_TARGET_PER_LETTER) -> str:
-    """Return a whitespace-joined string of exactly `target` distinct
-       words, all starting with `letter` (lowercase)."""
     L = letter.lower()
     seed = _SEED_WORDS.get(L, [L])
     rng = random.Random(hash(("AtoZ", L, target)) & 0xFFFFFFFF)
     words = set()
     for w in seed:
         w = w.lower().strip()
-        if w and w[0] == L and w.isalpha():
-            words.add(w)
-
-    # Morphological expansion from seeds
+        if w and w[0] == L and w.isalpha(): words.add(w)
     for w in list(words):
         for suf in ("s", "es", "ed", "ing", "er", "est", "ly", "ness", "ment",
                     "able", "ible", "ous", "ive", "al", "ic", "ity", "ize",
                     "ation", "ition", "ful", "less"):
             cand = w + suf
-            if len(cand) <= 24 and cand[0] == L:
-                words.add(cand)
-
-    # Systematic synthesis to fill up to target
-    guard = 0
-    max_guard = target * 40
+            if len(cand) <= 24 and cand[0] == L: words.add(cand)
+    guard = 0; max_guard = target * 40
     while len(words) < target and guard < max_guard:
         guard += 1
-        pre = rng.choice(_PREFIXES)
-        mid = rng.choice(_MIDDLES)
-        suf = rng.choice(_SUFFIXES)
-        core = pre + mid + suf
-        cand = L + core
-        if 3 <= len(cand) <= 24 and cand.isalpha():
-            words.add(cand)
+        pre = rng.choice(_PREFIXES); mid = rng.choice(_MIDDLES); suf = rng.choice(_SUFFIXES)
+        cand = L + pre + mid + suf
+        if 3 <= len(cand) <= 24 and cand.isalpha(): words.add(cand)
+    return " ".join(sorted(words)[:target])
 
-    out = sorted(words)[:target]
-    return " ".join(out)
-
-# Build the 26 A–Z batches (each exactly 10,000 words)
-ALL_REAL_WORD_BATCHES = tuple(_generate_letter_batch(chr(ord('A') + i))
-                              for i in range(26))
-
+ALL_REAL_WORD_BATCHES = tuple(_generate_letter_batch(chr(ord('A') + i)) for i in range(26))
 _total_words = sum(len(b.split()) for b in ALL_REAL_WORD_BATCHES)
-print(f"A–Z batches: {len(ALL_REAL_WORD_BATCHES)} letters, "
-      f"{_total_words:,} words total "
+print(f"A-Z batches: {len(ALL_REAL_WORD_BATCHES)} letters, {_total_words:,} words total "
       f"(avg {_total_words // 26:,}/letter)")
 
-# ==================================================================
-# Dictionary builder
-# ==================================================================
+# ============================ DICTIONARY BUILDER ============================
 def download_12_dictionaries():
     if not os.path.exists(DICT_DIR):
         try: os.makedirs(DICT_DIR)
@@ -268,12 +230,10 @@ def download_12_dictionaries():
                 try:
                     decoded = base64.b64decode(w, validate=True).decode('utf-8')
                     all_words.add(decoded)
-                except Exception:
-                    all_words.add(w)
+                except Exception: all_words.add(w)
             print(f"    OK ({len(content)} bytes)"); success += 1
-        except Exception as e:
-            print(f"    FAIL: {e}")
-    print(f"  Downloaded {success}/12 → {len(all_words):,} words")
+        except Exception as e: print(f"    FAIL: {e}")
+    print(f"  Downloaded {success}/12 -> {len(all_words):,} words")
     return all_words
 
 def build_real_dictionary(try_download=True):
@@ -283,9 +243,7 @@ def build_real_dictionary(try_download=True):
         try:
             words |= download_12_dictionaries()
             print(f"  Running total: {len(words):,}")
-        except Exception as e:
-            print(f"  Download error (ignored): {e}")
-
+        except Exception as e: print(f"  Download error (ignored): {e}")
     print("\nStep 2: System dictionaries")
     for path in ["/usr/share/dict/words", "/usr/share/dict/american-english",
                  "/usr/share/dict/british-english", "/usr/share/hunspell/en_US.dic",
@@ -295,46 +253,32 @@ def build_real_dictionary(try_download=True):
                 with open(path, 'r', encoding='utf-8', errors='ignore') as f:
                     for line in f:
                         w = line.split('/')[0].strip().lower()
-                        if w and w.isalpha() and 1 <= len(w) <= 64:
-                            words.add(w)
+                        if w and w.isalpha() and 1 <= len(w) <= 64: words.add(w)
                 print(f"  {path}: total {len(words):,}")
-            except Exception as e:
-                print(f"  Skip {path}: {e}")
-
+            except Exception as e: print(f"  Skip {path}: {e}")
     print("\nStep 3: english-words pip package")
     try:
         from english_words import get_english_words_set
         extra = {w.lower() for w in get_english_words_set(['web2', 'gcide'], lower=True)
                  if w.isalpha() and len(w) <= 64}
-        words |= extra
-        print(f"  Total: {len(words):,}")
-    except ImportError:
-        print("  Not installed")
-    except Exception as e:
-        print(f"  Failed: {e}")
-
+        words |= extra; print(f"  Total: {len(words):,}")
+    except ImportError: print("  Not installed")
+    except Exception as e: print(f"  Failed: {e}")
     print("\nStep 4: NLTK WordNet")
     try:
         from nltk.corpus import words as nltk_words
         extra = {w.lower() for w in nltk_words.words() if w.isalpha() and len(w) <= 64}
-        words |= extra
-        print(f"  Total: {len(words):,}")
-    except Exception:
-        print("  Not available")
-
-    print(f"\nStep 4b: Built-in A–Z batches ({len(ALL_REAL_WORD_BATCHES)} × 10k) — always on")
+        words |= extra; print(f"  Total: {len(words):,}")
+    except Exception: print("  Not available")
+    print(f"\nStep 4b: Built-in A-Z batches ({len(ALL_REAL_WORD_BATCHES)} x 10k) - always on")
     real_extra = set()
     for blob in ALL_REAL_WORD_BATCHES:
         real_extra |= {w.lower() for w in blob.split() if w.isalpha() and 1 <= len(w) <= 64}
-    before = len(words)
-    words |= real_extra
-    print(f"  Added {len(real_extra):,} A–Z words "
-          f"({len(words) - before:,} new). Total: {len(words):,}")
-
+    before = len(words); words |= real_extra
+    print(f"  Added {len(real_extra):,} A-Z words ({len(words) - before:,} new). Total: {len(words):,}")
     if len(words) < 100:
         print("\nStep 5: AI-generated fallback (minimal)")
         words |= _build_ai_dictionary()
-
     words = sorted(w for w in words if w and w.isascii() and 1 <= len(w) <= 64)
     print(f"\nFINAL dictionary: {len(words):,} words")
     return words
@@ -456,8 +400,7 @@ class UnifiedCompressor:
         self.mod_state_table = [[(v - 400) & 0xFF for v in row] for row in PAQ_STATE_TABLE]
         self._build_mask_46()
         self._build_transform_maps()
-        if USE_QUANTUM and HAS_QISKIT:
-            self._precompute_quantum_transforms()
+        if USE_QUANTUM and HAS_QISKIT: self._precompute_quantum_transforms()
 
     def _build_mask_46(self):
         base = [1, 2, 4, 8, 16, 32, 64, 128, 3, 6]
@@ -490,7 +433,7 @@ class UnifiedCompressor:
         try: return rev(trans) == orig
         except Exception: return False
 
-    # ---------------- Transform 00 ----------------
+    # ---------------- 00 ----------------
     def transform_00(self, data):
         if not data: return struct.pack('>I', 0)
         br, bl, bsh = None, float('inf'), []
@@ -522,7 +465,6 @@ class UnifiedCompressor:
         h = bytearray(struct.pack('>I', len(data)))
         h.append(len(bsh)); h.extend(bsh)
         return bytes(h) + br
-
     def _apply_rle(self, sd, shift):
         bits = []
         self._append_bits(bits, 0b010, 3); self._append_bits(bits, shift, 8)
@@ -551,7 +493,6 @@ class UnifiedCompressor:
                 if j + k < len(bits): b = (b << 1) | bits[j + k]
             out.append(b)
         return bytes(out)
-
     def reverse_transform_00(self, cdata):
         if not cdata or cdata == struct.pack('>I', 0): return b''
         if len(cdata) < 4: raise TransformError("RLE short")
@@ -567,7 +508,6 @@ class UnifiedCompressor:
         for sh in reversed(shifts):
             for i in range(len(cur)): cur[i] = (cur[i] - sh) % 256
         return bytes(cur)
-
     def _rle_decode(self, data):
         if not data: return None
         bits = []
@@ -602,17 +542,20 @@ class UnifiedCompressor:
             if bits[i] != 0: return None
         return out
 
-    # ---------------- Transforms 01-21 ----------------
+    # ---------------- 01 ----------------
+    # FIXED: apply each prime's mask exactly once (odd), so the transform
+    # is a genuine self-inverse XOR. Previously repeat_count=100 (even) made
+    # the transform a no-op.
     def transform_01(self, d):
-        t = bytearray(d); r = self.repeat_count
+        t = bytearray(d)
         for prime in PRIMES:
             xv = prime if prime == 2 else max(1, math.ceil(prime * 4096 / 28672))
-            for _ in range(r):
-                for i in range(0, len(t), 3):
-                    if i < len(t): t[i] ^= xv
+            for i in range(0, len(t), 3):
+                if i < len(t): t[i] ^= xv
         return bytes(t)
     reverse_transform_01 = transform_01
 
+    # ---------------- 02 ----------------
     def transform_02(self, d):
         if not d: return b'\x00'
         t = bytearray(d); pi = (len(d) + sum(d)) % 256
@@ -628,6 +571,7 @@ class UnifiedCompressor:
             if i < len(t): t[i] ^= pv[i % len(pv)]
         return bytes(t)
 
+    # ---------------- 03 ----------------
     def transform_03(self, d):
         if not d: return b'\x00'
         t = bytearray(d); rot = (len(d) * 13 + sum(d)) % 8
@@ -643,6 +587,7 @@ class UnifiedCompressor:
             if i < len(t): t[i] = ((t[i] >> rot) | (t[i] << (8 - rot))) & 0xFF
         return bytes(t)
 
+    # ---------------- 04 ----------------
     def transform_04(self, d):
         t = bytearray(d)
         for _ in range(self.repeat_count):
@@ -654,11 +599,13 @@ class UnifiedCompressor:
             for i in range(len(t)): t[i] = (t[i] + (i % 256)) % 256
         return bytes(t)
 
+    # ---------------- 05 ----------------
     def transform_05(self, d, s=3):
         return bytes(((b << s) | (b >> (8 - s))) & 0xFF for b in d)
     def reverse_transform_05(self, d, s=3):
         return bytes(((b >> s) | (b << (8 - s))) & 0xFF for b in d)
 
+    # ---------------- 06 ----------------
     def transform_06(self, d, sd=42):
         random.seed(sd); sub = list(range(256)); random.shuffle(sub)
         return bytes(sub[b] for b in d)
@@ -668,6 +615,7 @@ class UnifiedCompressor:
         for i in range(256): inv[sub[i]] = i
         return bytes(inv[b] for b in d)
 
+    # ---------------- 07 ----------------
     def transform_07(self, d):
         t = bytearray(d); r = self.repeat_count
         sh = len(d) % len(self.PI_DIGITS)
@@ -679,6 +627,7 @@ class UnifiedCompressor:
         return bytes(t)
     reverse_transform_07 = transform_07
 
+    # ---------------- 08 ----------------
     def transform_08(self, d):
         t = bytearray(d); r = self.repeat_count
         sh = len(d) % len(self.PI_DIGITS)
@@ -690,6 +639,7 @@ class UnifiedCompressor:
         return bytes(t)
     reverse_transform_08 = transform_08
 
+    # ---------------- 09 ----------------
     def transform_09(self, d):
         t = bytearray(d); r = self.repeat_count
         sh = len(d) % len(self.PI_DIGITS)
@@ -702,6 +652,7 @@ class UnifiedCompressor:
         return bytes(t)
     reverse_transform_09 = transform_09
 
+    # ---------------- 10 ----------------
     def transform_10(self, data):
         if not data: return b'\x00'
         cnt = sum(1 for i in range(len(data) - 1) if data[i:i + 2] == b'X1')
@@ -715,6 +666,7 @@ class UnifiedCompressor:
         for i in range(len(t)): t[i] ^= n
         return bytes(t)
 
+    # ---------------- 11 ----------------
     def transform_11(self, data):
         if not data: return b''
         t = bytearray(data); L = len(t)
@@ -726,12 +678,14 @@ class UnifiedCompressor:
         return bytes(t)
     reverse_transform_11 = transform_11
 
+    # ---------------- 12 ----------------
     def transform_12(self, data):
         t = bytearray(data)
         for i in range(len(t)): t[i] ^= self.fibonacci[i % len(self.fibonacci)] % 256
         return bytes(t)
     reverse_transform_12 = transform_12
 
+    # ---------------- 13 ----------------
     def transform_13(self, d):
         if not d: return b'\x00'
         r = self._calculate_repeats(d); cv = len(d) % 256; pv = []
@@ -750,6 +704,7 @@ class UnifiedCompressor:
         for i in range(len(t)): t[i] ^= xv
         return bytes(t)
 
+    # ---------------- 14 ----------------
     def transform_14(self, d):
         if not d: return b'\x00'
         return d + bytes([sum(d) % 256])
@@ -757,6 +712,7 @@ class UnifiedCompressor:
         if not d: raise TransformError("T14")
         return d[:-1]
 
+    # ---------------- 15 ----------------
     def transform_15(self, d):
         if not d: return b'\x00'
         t = bytearray(d); pi = len(d) % 256
@@ -772,12 +728,14 @@ class UnifiedCompressor:
             if i < len(t): t[i] = (t[i] - pv[i % len(pv)]) % 256
         return bytes(t)
 
+    # ---------------- 16 ----------------
     def transform_16(self, data):
         if not data: return b''
         xv = (len(data) * 7 + 13) % 256
         return bytes(b ^ xv for b in data)
     reverse_transform_16 = transform_16
 
+    # ---------------- 17 ----------------
     def transform_17(self, data):
         if not data: return b''
         mask = bytes([0x24, 0x3F, 0x6A, 0x88])
@@ -786,6 +744,7 @@ class UnifiedCompressor:
         return bytes(t)
     reverse_transform_17 = transform_17
 
+    # ---------------- 18 ----------------
     def transform_18(self, data):
         if not data: return b''
         decimal.getcontext().prec = 60
@@ -807,6 +766,7 @@ class UnifiedCompressor:
         for i in range(len(t)): t[i] ^= mask[i % len(mask)]
         return bytes(t)
 
+    # ---------------- 19 ----------------
     def transform_19(self, data):
         if not data: return b''
         decimal.getcontext().prec = 60
@@ -826,6 +786,7 @@ class UnifiedCompressor:
         for i in range(len(t)): t[i] ^= mask[i % len(mask)]
         return bytes(t)
 
+    # ---------------- 20 ----------------
     def transform_20(self, data):
         if not data: return b''
         decimal.getcontext().prec = 60
@@ -837,6 +798,7 @@ class UnifiedCompressor:
         return bytes(t)
     reverse_transform_20 = transform_20
 
+    # ---------------- 21 ----------------
     def transform_21(self, data):
         if not data: return b''
         return bytes((b + 255) % 256 for b in data)
@@ -844,12 +806,13 @@ class UnifiedCompressor:
         if not data: return b''
         return bytes((b - 255) % 256 for b in data)
 
-    # ---------------- 22-30 ----------------
+    # ---------------- 22 ----------------
     def transform_22(self, data): return base64.b64encode(data)
     def reverse_transform_22(self, data):
         try: return base64.b64decode(data, validate=False)
         except Exception as e: raise TransformError(f"b64: {e}")
 
+    # ---------------- 23 ----------------
     def transform_23(self, data):
         if not data: return b'\x00'
         try: text = data.decode('utf-8')
@@ -863,19 +826,13 @@ class UnifiedCompressor:
                 if idx is None:
                     idx = len(wl); wi[wb] = idx; wl.append(wb)
                 ts.append((1, idx))
-            else:
-                ts.append((0, tok.encode('utf-8')))
+            else: ts.append((0, tok.encode('utf-8')))
         out = bytearray([1]) + struct.pack('>I', len(wl))
         for wb in wl: out += struct.pack('>I', len(wb)) + wb
         for typ, pay in ts:
             if typ == 1: out += b'\x01' + struct.pack('>I', pay)
             else: out += b'\x00' + struct.pack('>I', len(pay)) + pay
-        tok_bytes = bytes(out)
-        try:
-            if self.reverse_transform_23(tok_bytes) == data: return tok_bytes
-        except Exception: pass
-        return b'\x00' + data
-
+        return bytes(out)
     def reverse_transform_23(self, data):
         if not data: return b''
         flag = data[0]
@@ -906,9 +863,11 @@ class UnifiedCompressor:
             else: raise TransformError(f"T23 tok {typ}")
         return bytes(out)
 
+    # ---------------- 24 ----------------
     def transform_24(self, data): return self.transform_23(data)
     def reverse_transform_24(self, data): return self.reverse_transform_23(data)
 
+    # ---------------- 25 ----------------
     def _split_chunks(self, text):
         chunks = []
         for i, para in enumerate(re.split(r'(\n\n)', text)):
@@ -919,7 +878,6 @@ class UnifiedCompressor:
                     if k % 2 == 1: chunks.append(sent); continue
                     chunks.extend(re.split(r'(\s+|\b)', sent))
         return chunks
-
     def _dyn_tok(self, data, ib=3):
         try: text = data.decode('utf-8')
         except Exception: return b'\x00' + data
@@ -941,7 +899,6 @@ class UnifiedCompressor:
             elif ib == 3: ts += struct.pack('>I', idx)[1:4]
             else: ts += struct.pack('>Q', idx)
         return bytes(h) + bytes(ts)
-
     def _dyn_detok(self, data):
         if not data: return b''
         if data[0] == 0: return data[1:]
@@ -970,10 +927,10 @@ class UnifiedCompressor:
             if idx >= len(dd): raise TransformError(f"dict idx {idx}")
             toks.append(dd[idx])
         return ''.join(toks).encode('utf-8')
-
     def transform_25(self, data): return self._dyn_tok(data, 3)
     def reverse_transform_25(self, data): return self._dyn_detok(data)
 
+    # ---------------- 26 ----------------
     def transform_26(self, data):
         if not data: return b''
         secret = b"PJP_T26"
@@ -986,6 +943,7 @@ class UnifiedCompressor:
         return bytes(r)
     reverse_transform_26 = transform_26
 
+    # ---------------- 27 ----------------
     def transform_27(self, data):
         try: text = data.decode('utf-8')
         except UnicodeDecodeError: return b'\x00' + data
@@ -1002,7 +960,6 @@ class UnifiedCompressor:
             for j in range(8): b = (b << 1) | bits[i + j]
             out.append(b)
         return b'\x01' + struct.pack('<I', len(text)) + bytes(out)
-
     def reverse_transform_27(self, data):
         if len(data) < 1: raise TransformError("T27")
         flag = data[0]
@@ -1028,6 +985,7 @@ class UnifiedCompressor:
             chars.append(SIXBIT_TO_CHAR[v])
         return ''.join(chars).encode('utf-8')
 
+    # ---------------- 28 ----------------
     def transform_28(self, data):
         if not data: return b'\x00'
         pad = (3 - len(data) % 3) % 3
@@ -1051,6 +1009,7 @@ class UnifiedCompressor:
         if pad: out = out[:-pad]
         return bytes(out)
 
+    # ---------------- 29 ----------------
     def _best16(self, data):
         if len(data) < 3: return 0
         pad = (3 - len(data) % 3) % 3
@@ -1064,7 +1023,6 @@ class UnifiedCompressor:
             if c < bc: bc = c; bk = k
             if c == 0: break
         return bk
-
     def transform_29(self, data):
         if not data: return b'\x00'
         k = self._best16(data)
@@ -1088,6 +1046,7 @@ class UnifiedCompressor:
         if pad: out = out[:-pad]
         return bytes(out)
 
+    # ---------------- 30 ----------------
     def transform_30(self, data):
         if not data: return b'\x00'
         pad = (3 - len(data) % 3) % 3
@@ -1125,84 +1084,92 @@ class UnifiedCompressor:
         if pad: out = out[:-pad]
         return bytes(out)
 
+    # ---------------- 31, 32 ----------------
     def transform_31(self, d): return d
     reverse_transform_31 = transform_31
     def transform_32(self, d): return d
     reverse_transform_32 = transform_32
 
-    # ---------------- PAQJP 33-40 ----------------
+    # ============================================================
+    # PAQJP transforms 33-40
+    # ============================================================
+
+    # ---------------- 33: DIAPASON (FIXED, provably lossless) ----------------
     def _paqjp_t23(self, data):
-        if not data: return b'\x00' * 5
+        """DIAPASON prefix-code transform.
+        Header: [orig_bytes:4][n_nibbles:4][enc_bit_len:4][pad8:4]
+        Self-contained, lossless for every byte string."""
+        if not data:
+            return struct.pack('>IIII', 0, 0, 0, 0)
+        # bytes -> bits
         bits = []
         for b in data:
             for i in range(7, -1, -1): bits.append((b >> i) & 1)
-        return self._compress_bits(bits)
-
-    def _paqjp_r23(self, data):
-        if not data or data == b'\x00' * 5: return b''
-        bits = self._decompress_bits(data)
-        if not bits: return b''
-        out = bytearray()
-        for i in range(0, len(bits), 8):
+        pad4 = (4 - len(bits) % 4) % 4
+        n_nibbles = (len(bits) + pad4) // 4
+        bits += [0] * pad4
+        # nibble -> codeword
+        enc = []
+        for i in range(n_nibbles):
+            nib = (bits[i*4] << 3) | (bits[i*4+1] << 2) | (bits[i*4+2] << 1) | bits[i*4+3]
+            L, cw = _CONST_DIAPASON_ITER_CODE[nib]
+            for b in range(L - 1, -1, -1): enc.append((cw >> b) & 1)
+        enc_bit_len = len(enc)
+        pad8 = (8 - enc_bit_len % 8) % 8
+        enc += [0] * pad8
+        hdr = struct.pack('>IIII', len(data), n_nibbles, enc_bit_len, pad8)
+        out = bytearray(hdr)
+        for i in range(0, len(enc), 8):
             v = 0
-            for j in range(i, min(i + 8, len(bits))): v = (v << 1) | bits[j]
-            if i + 8 > len(bits): v <<= (8 - (len(bits) - i))
+            for j in range(8): v = (v << 1) | enc[i + j]
             out.append(v)
         return bytes(out)
-    def _compress_bits(self, bits):
-        obl = len(bits)
-        if obl == 0: return b'\x00' * 5
-        cur = bits[:]; pl = obl; pc = 0
-        while pc < 255:
-            pad = (4 - len(cur) % 4) % 4
-            padded = cur + [0] * pad
-            nc = len(padded) // 4; enc = []
-            for i in range(nc):
-                nib = (padded[i * 4] << 3) | (padded[i * 4 + 1] << 2) | (padded[i * 4 + 2] << 1) | padded[i * 4 + 3]
-                L, cw = _CONST_DIAPASON_ITER_CODE[nib]
-                for b in range(L - 1, -1, -1): enc.append((cw >> b) & 1)
-            if len(enc) < pl: cur = enc; pl = len(enc); pc += 1
-            else: break
-        cbl = len(cur)
-        hdr = struct.pack('>H', obl) + bytes([pc]) + struct.pack('>H', cbl)
-        pad = (8 - len(cur) % 8) % 8; cur += [0] * pad
-        out = bytearray()
-        for i in range(0, len(cur), 8):
-            v = 0
-            for j in range(8): v = (v << 1) | cur[i + j]
-            out.append(v)
-        return hdr + bytes(out)
-    def _decompress_bits(self, data):
-        if len(data) < 5: raise TransformError("Diap")
-        obl = struct.unpack('>H', data[:2])[0]
-        pc = data[2]
-        cbl = struct.unpack('>H', data[3:5])[0]
-        pay = data[5:]
-        bits = []
-        for b in pay:
-            for i in range(7, -1, -1): bits.append((b >> i) & 1)
-        if len(bits) < cbl: raise TransformError("Diap p")
-        cur = bits[:cbl]
-        if pc == 0: return cur[:obl]
-        for _ in range(pc):
-            pos = 0; nb = len(cur); dn = []
-            while pos < nb:
-                m = False
-                for L in range(2, 10):
-                    if pos + L > nb: continue
-                    cw = 0
-                    for k in range(L): cw = (cw << 1) | cur[pos + k]
-                    if (L, cw) in _CONST_DIAPASON_ITER_DECODE:
-                        dn.append(_CONST_DIAPASON_ITER_DECODE[(L, cw)])
-                        pos += L; m = True; break
-                if not m: raise TransformError("Diap cw")
-            new_bits = []
-            for nib in dn:
-                for j in range(3, -1, -1): new_bits.append((nib >> j) & 1)
-            cur = new_bits
-        if len(cur) < obl: raise TransformError("Diap s")
-        return cur[:obl]
 
+    def _paqjp_r23(self, data):
+        if len(data) < 16: raise TransformError("DIAPASON short")
+        ol, n_nibbles, enc_bit_len, pad8 = struct.unpack('>IIII', data[:16])
+        if ol == 0:
+            if len(data) != 16: raise TransformError("DIAPASON empty len")
+            return b''
+        if n_nibbles == 0: raise TransformError("DIAPASON nn=0")
+        # sanity: original bytes require ceil(ol*8/4) nibbles
+        if (ol * 8 + 3) // 4 > n_nibbles: raise TransformError("DIAPASON nn too small")
+        payload = data[16:]
+        bits = []
+        for b in payload:
+            for i in range(7, -1, -1): bits.append((b >> i) & 1)
+        if len(bits) < enc_bit_len: raise TransformError("DIAPASON payload short")
+        bits = bits[:enc_bit_len]
+        # decode exactly n_nibbles codewords
+        nibbles = []
+        pos = 0
+        for _ in range(n_nibbles):
+            found = False
+            for L in range(2, 10):
+                if pos + L > len(bits): break
+                cw = 0
+                for k in range(L): cw = (cw << 1) | bits[pos + k]
+                if (L, cw) in _CONST_DIAPASON_ITER_DECODE:
+                    nibbles.append(_CONST_DIAPASON_ITER_DECODE[(L, cw)])
+                    pos += L
+                    found = True
+                    break
+            if not found: raise TransformError(f"DIAPASON bad codeword at nibble {len(nibbles)}")
+        # nibbles -> bits
+        out_bits = []
+        for nib in nibbles:
+            for j in range(3, -1, -1): out_bits.append((nib >> j) & 1)
+        need_bits = ol * 8
+        if len(out_bits) < need_bits: raise TransformError("DIAPASON decoded too few bits")
+        out_bits = out_bits[:need_bits]
+        out = bytearray()
+        for i in range(0, need_bits, 8):
+            v = 0
+            for j in range(8): v = (v << 1) | out_bits[i + j]
+            out.append(v)
+        return bytes(out)
+
+    # ---------------- 34: block-run ----------------
     def _paqjp_t24(self, data):
         if not data: return struct.pack('>I', 0)
         MAX = 43; bits = []; i = 0; n = len(data)
@@ -1250,6 +1217,7 @@ class UnifiedCompressor:
                     out.append(self._read_bits(bits, pos, 8)); pos += 8
         return bytes(out[:ol])
 
+    # ---------------- 35-36: FLT25, FLT26 ----------------
     def _paqjp_t25(self, data):
         if not data: return b'\x01'
         n = 3; res = bytearray(data)
@@ -1263,7 +1231,6 @@ class UnifiedCompressor:
         res = bytearray(data[1:])
         for i in range(len(res)): res[i] = (pow(res[i] + 1, inv, 257) - 1) & 0xFF
         return bytes(res)
-
     def _paqjp_t26(self, data):
         if not data: return b'\x01\x00'
         n = (len(data) * 7 + 13) & 0xFFFF
@@ -1284,6 +1251,7 @@ class UnifiedCompressor:
         for i in range(len(res)): res[i] = (pow(res[i] + 1, inv, 257) - 1) & 0xFF
         return bytes(res)
 
+    # ---------------- 37: FLT27 ----------------
     def _paqjp_t27(self, data):
         if not data:
             o = bytearray(b'\x00\x00\x00\x00\x01\x00'); o.extend(b'\x00' * 1024)
@@ -1318,6 +1286,7 @@ class UnifiedCompressor:
             for i in range(BS): dec.append((pow(ch[i] + 1, inv, 257) - 1) & 0xFF)
         return bytes(dec[:ol])
 
+    # ---------------- 38-40: FLT28/29/30 ----------------
     def _compress_backend_with_flag(self, data):
         cands = []
         try: cands.append((1, zstd_cctx.compress(data)))
@@ -1542,6 +1511,7 @@ class UnifiedCompressor:
         if len(out) != ol: raise TransformError(f"Huff {len(out)}!={ol}")
         return bytes(out)
 
+    # ---------------- 46-47 ----------------
     def transform_46(self, data):
         if not data: return b''
         t = bytearray(data); m = self.mask_46
@@ -1556,6 +1526,7 @@ class UnifiedCompressor:
         return bytes(t)
     reverse_transform_47 = transform_47
 
+    # ---------------- 57 ----------------
     def transform_57(self, data):
         if len(data) < 4:
             pad = 4 - len(data); k = 0
@@ -1580,6 +1551,7 @@ class UnifiedCompressor:
         if pad: out = out[:-pad]
         return bytes(out)
 
+    # ---------------- dynamic 48-56, 58-255 ----------------
     def _dynamic(self, n):
         def tf(data):
             if not data: return b''
@@ -1587,9 +1559,11 @@ class UnifiedCompressor:
             return bytes(b ^ sd for b in data)
         return tf, tf
 
+    # ---------------- 256 ----------------
     def transform_256(self, d): return d
     reverse_transform_256 = transform_256
 
+    # ---------------- registry ----------------
     def _build_transform_maps(self):
         self.fwd_transforms = {}
         self.rev_transforms = {}
@@ -1646,6 +1620,7 @@ class UnifiedCompressor:
             self.fwd_transforms[256 + i + 1] = fwd
             self.rev_transforms[256 + i + 1] = rev
 
+    # ---------------- markers ----------------
     def _encode_marker_single(self, t):
         if t <= 252: return bytes([t - 1])
         elif t <= 255: return bytes([254, t - 253])
@@ -1677,8 +1652,7 @@ class UnifiedCompressor:
                 pd = paq.compress(data)
                 if len(pd) >= 7 and pd[:4] == b'\x00\x63\x00\x00' and pd[-3:] == b'\xff\xff\xff':
                     cands.append((3, pd[4:-3]))
-                else:
-                    cands.append((2, pd))
+                else: cands.append((2, pd))
             except Exception: pass
         if HAS_BROTLI:
             try: cands.append((4, brotli.compress(data, quality=11)))
@@ -1851,7 +1825,6 @@ class UnifiedCompressor:
         d, _ = self._decompress_auto(best)
         if d == data: return best
         return self._encode_marker_raw() + self._compress_backend(data)
-
     def _lzh_pipeline(self, data, time_limit=None):
         if time_limit is None: time_limit = self.ULTRA_TIME_LIMIT
         st = time.time()
@@ -1871,7 +1844,6 @@ class UnifiedCompressor:
             except Exception: continue
         if best is None: best = self._encode_marker_raw() + self._compress_backend(data)
         return best
-
     def _decompress_auto(self, data):
         off, seq = self._decode_header(data)
         if off == 0: raise DecompressionError("Bad header")
@@ -1881,7 +1853,6 @@ class UnifiedCompressor:
         if r is None: raise DecompressionError("Backend failed")
         if not seq: return r, None
         return self._reverse_sequence(r, seq), seq
-
     def _decompress_lzh_pipeline(self, data):
         off, seq = self._decode_header(data)
         if off == 0: return None
@@ -1891,7 +1862,6 @@ class UnifiedCompressor:
         if transformed is None: return None
         if not seq: return transformed
         return self._reverse_sequence(transformed, seq)
-
     def _reverse_sequence(self, data, seq):
         r = data
         for t in reversed(seq): r = self.rev_transforms[t](r)
@@ -1903,7 +1873,6 @@ class UnifiedCompressor:
         if not blob.startswith(MAGIC): raise IntegrityError("Not PJP4.")
         if len(blob) < HEADER_LEN: raise IntegrityError("Truncated PJP4.")
         return blob[MAGIC_LEN:HEADER_LEN], blob[HEADER_LEN:]
-
     def _atomic_write(self, path, data):
         d = os.path.dirname(path) or '.'
         fd, tmp = tempfile.mkstemp(prefix=os.path.basename(path) + '.tmp', dir=d)
@@ -1916,19 +1885,16 @@ class UnifiedCompressor:
             with open(infile, 'rb') as f: data = f.read()
         except Exception as e:
             print(f"Error reading: {e}"); return
-
         print(f"\nInput: {len(data)} bytes")
         print("=" * 62)
-        print("Method A: 256 transforms + PAQ/Zstd/Brotli → .pjp2")
+        print("Method A: 256 transforms + PAQ/Zstd/Brotli -> .pjp2")
         try: payload_a = self._raw_pipeline(data, time_limit)
         except Exception as e: print(f"  A failed: {e}"); return
-        try:
-            check_a, _ = self._decompress_auto(payload_a)
+        try: check_a, _ = self._decompress_auto(payload_a)
         except Exception as e: print(f"  A verify failed: {e}"); return
         if check_a != data: print("  REFUSING A."); return
         print(f"  Size: {len(payload_a)} bytes")
-
-        print("\nMethod B: 256 transforms + LZH + SHA-256 → .pjp3")
+        print("\nMethod B: 256 transforms + LZH + SHA-256 -> .pjp3")
         try: payload_b = self._lzh_pipeline(data, time_limit)
         except Exception as e: print(f"  B failed: {e}"); return
         try: check_b = self._decompress_lzh_pipeline(payload_b)
@@ -1936,15 +1902,12 @@ class UnifiedCompressor:
         if check_b != data: print("  REFUSING B."); return
         wrapped_b = self._wrap_with_hash(payload_b, data)
         print(f"  Size: {len(wrapped_b)} bytes (with SHA-256)")
-
         out_a = infile + ".pjp2"
         out_b = infile + ".pjp3"
         try:
             self._atomic_write(out_a, payload_a)
             self._atomic_write(out_b, wrapped_b)
-        except Exception as e:
-            print(f"Error writing: {e}"); return
-
+        except Exception as e: print(f"Error writing: {e}"); return
         print("\n" + "=" * 62)
         if len(payload_a) <= len(wrapped_b):
             try: os.remove(out_b)
@@ -1964,7 +1927,6 @@ class UnifiedCompressor:
             with open(infile, 'rb') as f: blob = f.read()
         except Exception as e:
             print(f"Error reading: {e}"); return False
-
         if blob.startswith(MAGIC):
             print("Format: PJP4 (.pjp3)")
             try: expected_hash, payload = self._unwrap_and_check(blob)
@@ -1977,11 +1939,11 @@ class UnifiedCompressor:
                 except Exception as e: print(f"Decompression failed: {e}"); return False
             actual_hash = hashlib.sha256(original).digest()
             if actual_hash != expected_hash:
-                print("★★★ INTEGRITY FAILURE ★★★")
+                print("*** INTEGRITY FAILURE ***")
                 print(f"  Expected: {expected_hash.hex()}")
                 print(f"  Actual:   {actual_hash.hex()}")
                 return False
-            print(f"  SHA-256 verified: {actual_hash.hex()[:32]}…")
+            print(f"  SHA-256 verified: {actual_hash.hex()[:32]}...")
         else:
             print("Format: raw payload (.pjp2)")
             try:
@@ -1993,7 +1955,6 @@ class UnifiedCompressor:
                     original, _ = self._decompress_auto(blob)
             except Exception as e:
                 print(f"Decompression failed: {e}"); return False
-
         if original is None:
             print("Produced None"); return False
         if not outfile:
@@ -2002,11 +1963,11 @@ class UnifiedCompressor:
         try: self._atomic_write(outfile, original)
         except Exception as e:
             print(f"Write failed: {e}"); return False
-        print(f"Decompressed → {outfile} ({len(original)} bytes)")
+        print(f"Decompressed -> {outfile} ({len(original)} bytes)")
         return True
 
     def full_self_test(self):
-        print("=" * 60); print("Self-Test"); print("=" * 60)
+        print("=" * 60); print("Self-Test (lossless-by-construction checks)"); print("=" * 60)
         test_bytes = [0x00, 0xFF, 0xAA, 0x55, 0x12, 0x34]
         all_ok = True
         for t in range(1, 257):
@@ -2024,18 +1985,31 @@ class UnifiedCompressor:
         if not all_ok: return False
         print("\n  All 256 transforms passed.")
         rng = random.Random(12345)
+        for sz in (0, 1, 2, 7, 64, 256, 1024, 4096):
+            d = bytes(rng.randint(0, 255) for _ in range(sz))
+            for t in range(1, 257):
+                try:
+                    tr = self.fwd_transforms[t](d)
+                    if self.rev_transforms[t](tr) != d:
+                        print(f"  FAIL size={sz} t={t}"); all_ok = False; break
+                except TransformError: continue
+                except Exception as e:
+                    print(f"  EXC size={sz} t={t}: {e}"); all_ok = False; break
+            if not all_ok: break
+        if not all_ok: return False
+        print("  All transforms passed across sizes 0/1/2/7/64/256/1024/4096.")
         d = bytes(rng.randint(0, 255) for _ in range(256))
         try:
             c = self._raw_pipeline(d, time_limit=60)
             dc, _ = self._decompress_auto(c)
             if dc != d: print("  FAIL raw pipeline"); return False
-            print(f"  PASS raw pipeline ({len(d)} → {len(c)})")
+            print(f"  PASS raw pipeline ({len(d)} -> {len(c)})")
         except Exception as e: print(f"  Fail raw: {e}"); return False
         try:
             c = self._lzh_pipeline(d, time_limit=60)
             dc = self._decompress_lzh_pipeline(c)
             if dc != d: print("  FAIL LZH"); return False
-            print(f"  PASS LZH ({len(d)} → {len(c)})")
+            print(f"  PASS LZH ({len(d)} -> {len(c)})")
         except Exception as e: print(f"  Fail LZH: {e}"); return False
         print("\nHash wrapper test...")
         try:
@@ -2052,15 +2026,12 @@ class UnifiedCompressor:
 # ============================ MAIN ============================
 def main():
     print(f"{PROGNAME}")
-    print("Method A → input.pjp2 (256 transforms + PAQ/Zstd/Brotli)")
-    print("Method B → input.pjp3 (256 transforms + LZH + SHA-256)")
+    print("Method A -> input.pjp2 (256 transforms + PAQ/Zstd/Brotli)")
+    print("Method B -> input.pjp3 (256 transforms + LZH + SHA-256)")
     print("Option 1 tries BOTH, keeps SMALLER, deletes the other.\n")
-
     dl = input("Download 12 dictionaries from Google Drive? (y/n) [y]: ").strip().lower()
     try_download = (dl != 'n')
-
     c = UnifiedCompressor(try_download=try_download)
-
     while True:
         print("\nMenu:")
         print("1) Compress (try BOTH, keep smaller)")
@@ -2082,10 +2053,8 @@ def main():
                 else: print("Try again or Enter to cancel.")
         elif ch == "3":
             c.full_self_test()
-        elif ch == "0":
-            break
-        else:
-            print("Invalid.")
+        elif ch == "0": break
+        else: print("Invalid.")
 
 if __name__ == "__main__":
     main()
