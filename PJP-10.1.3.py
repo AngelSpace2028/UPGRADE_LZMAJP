@@ -13,6 +13,10 @@ Method G → input.eN   : same as .aN but lzma  flag stripped  (-1 byte)
 
 ★ COMPRESS evaluates ALL candidates in RAM, keeps ONLY the single
   SMALLEST file, and deletes every other potential output.
+
+★ Algorithm #58 (NEW) — Fibonacci + constant + LZ-77 predictor,
+  Huffman prefix coding, bit-depth {4,16,32,64} chosen by SHA-256,
+  deterministic SHA-256 counter-mode whitening (NOT for passwords).
 """
 
 import math, random, decimal, hashlib, base64, heapq, struct, os, tempfile
@@ -119,7 +123,7 @@ else: print("Skipping paq + brotli.")
 
 print(f"\nBackends: zstd=Y lzma=Y paq={'Y' if paq else 'N'} brotli={'Y' if HAS_BROTLI else 'N'}")
 
-PROGNAME = "UnifiedPAQJP+PJP (One Winner, LZMA, stripped .c/.d/.e, 8B hash)"
+PROGNAME = "UnifiedPAQJP+PJP (One Winner, LZMA, stripped .c/.d/.e, 8B hash, Algo #58)"
 
 # ============================ DICTIONARY ============================
 DICT_DIR = "Dictionaries"
@@ -1576,6 +1580,257 @@ class UnifiedCompressor:
         if pad: out = out[:-pad]
         return bytes(out)
 
+    # ------------------------------------------------------------------
+    # ★ Algorithm #58 — Fibonacci + constant + LZ-77 predictor, Huffman
+    #   prefix coding, adaptive bit depth {4,16,32,64}, SHA-256 whitening.
+    #   SHA-256 is used ONLY as a deterministic keystream generator — no
+    #   password, no salted password hashing. Same input ⇒ same output.
+    # ------------------------------------------------------------------
+    def transform_58(self, data):
+        # ---- empty input: minimal valid header ------------------------
+        if not data:
+            return (b'\x58' + b'\x00' + b'\x00'
+                    + (0).to_bytes(8, 'big')
+                    + b'\x00' + b'\x00' * 256)          # 268 bytes
+
+        # ---- 1. bit-depth selection (SHA-256) -------------------------
+        sha_h = hashlib.sha256(data).digest()
+        depths = [4, 16, 32, 64]
+        bd = depths[sha_h[0] & 0x03]
+        bd_code = {4: 0, 16: 1, 32: 2, 64: 3}[bd]
+
+        # ---- 2. pack into words ---------------------------------------
+        if bd == 4:
+            words = []
+            for b in data:
+                words.append((b >> 4) & 0xF)
+                words.append(b & 0xF)
+            mask = 0xF
+            wbytes = 1
+        else:
+            wbytes = bd // 8
+            padded = data + b'\x00' * ((-len(data)) % wbytes)
+            words = [int.from_bytes(padded[i:i + wbytes], 'big')
+                     for i in range(0, len(padded), wbytes)]
+            mask = (1 << bd) - 1
+        n = len(words)
+
+        # ---- 3. three predictors --------------------------------------
+        fibs = self.fibonacci or [0, 1]
+        Lf = len(fibs)
+        const = Counter(words).most_common(1)[0][0]
+
+        lz_pred = [0] * n
+        last_after = {}
+        for i in range(n):
+            if i == 0:
+                lz_pred[i] = const
+            else:
+                lz_pred[i] = last_after.get(words[i - 1], const)
+                last_after[words[i - 1]] = words[i]
+
+        def pred_const(i): return const
+        def pred_fib(i):
+            if i == 0: return const
+            return (words[i - 1] + fibs[i % Lf]) & mask
+        def pred_lz(i):  return lz_pred[i]
+
+        # ---- 4. best predictor by residual transitions ----------------
+        def pack_residuals(res):
+            rb = bytearray()
+            if bd == 4:
+                for i in range(0, len(res), 2):
+                    v = res[i] << 4
+                    if i + 1 < len(res): v |= res[i + 1]
+                    rb.append(v)
+            elif bd == 16:
+                for r in res:
+                    rb.append((r >> 8) & 0xFF); rb.append(r & 0xFF)
+            elif bd == 32:
+                for r in res: rb.extend(r.to_bytes(4, 'big'))
+            else:
+                for r in res: rb.extend(r.to_bytes(8, 'big'))
+            return bytes(rb)
+
+        best = None
+        for code, fn in ((0, pred_const), (1, pred_fib), (2, pred_lz)):
+            res = [(words[i] - fn(i)) & mask for i in range(n)]
+            rb  = pack_residuals(res)
+            sc  = sum(1 for i in range(1, len(rb)) if rb[i] != rb[i - 1])
+            if best is None or sc < best[0]:
+                best = (sc, code, rb)
+        _, pred_code, rbytes = best
+
+        # ---- 5. Huffman coding of residuals ---------------------------
+        freq = [0] * 256
+        for b in rbytes: freq[b] += 1
+        cl    = self._huffman_code_lengths(freq)
+        codes = self._huffman_canonical_codes(cl)
+
+        bits = []
+        for b in rbytes:
+            c, ln = codes[b]
+            for k in range(ln - 1, -1, -1): bits.append((c >> k) & 1)
+        bits.extend([0] * ((8 - len(bits) % 8) % 8))
+
+        huff = bytearray()
+        for i in range(0, len(bits), 8):
+            v = 0
+            for j in range(8): v = (v << 1) | bits[i + j]
+            huff.append(v)
+
+        # ---- 6. SHA-256 whitening (deterministic, no password) --------
+        key_mat = b'T58' + len(data).to_bytes(8, 'big') + bytes(cl)
+        seed = hashlib.sha256(key_mat).digest()
+        stream = bytearray()
+        ctr = 0
+        while len(stream) < len(huff):
+            stream.extend(hashlib.sha256(seed + ctr.to_bytes(8, 'big')).digest())
+            ctr += 1
+        whitened = bytes(h ^ s for h, s in zip(huff, stream))
+
+        # ---- 7. header + payload --------------------------------------
+        body = bytearray()
+        body.append(0x58)
+        body.append(bd_code)
+        body.append(pred_code)
+        body.extend(len(data).to_bytes(8, 'big'))
+        if bd == 4:
+            body.append(const & 0xFF)
+        else:
+            body.extend(const.to_bytes(wbytes, 'big'))
+        body.extend(bytes(cl))
+        body.extend(whitened)
+        return bytes(body)
+
+    def reverse_transform_58(self, data):
+        if not data or data[0] != 0x58:
+            raise TransformError("T58 magic")
+        pos = 1
+        bd_code   = data[pos]; pos += 1
+        pred_code = data[pos]; pos += 1
+        orig_len  = int.from_bytes(data[pos:pos + 8], 'big'); pos += 8
+        if bd_code > 3 or pred_code > 2:
+            raise TransformError("T58 hdr")
+
+        depths = [4, 16, 32, 64]
+        bd = depths[bd_code]
+        wbytes = 0 if bd == 4 else bd // 8
+        if bd == 4:
+            if pos + 1 > len(data): raise TransformError("T58 short")
+            const = data[pos] & 0xF; pos += 1
+            mask  = 0xF
+        else:
+            if pos + wbytes > len(data): raise TransformError("T58 short")
+            const = int.from_bytes(data[pos:pos + wbytes], 'big')
+            pos += wbytes
+            mask = (1 << bd) - 1
+
+        if pos + 256 > len(data):
+            raise TransformError("T58 short cl")
+        cl = list(data[pos:pos + 256]); pos += 256
+        huff_w = data[pos:]
+
+        if orig_len == 0:
+            return b''
+
+        # ---- de-whiten ------------------------------------------------
+        key_mat = b'T58' + orig_len.to_bytes(8, 'big') + bytes(cl)
+        seed = hashlib.sha256(key_mat).digest()
+        stream = bytearray()
+        ctr = 0
+        while len(stream) < len(huff_w):
+            stream.extend(hashlib.sha256(seed + ctr.to_bytes(8, 'big')).digest())
+            ctr += 1
+        huff = bytes(h ^ s for h, s in zip(huff_w, stream))
+
+        # ---- Huffman decode -------------------------------------------
+        syms  = sorted(range(256), key=lambda s: (cl[s], s))
+        code_to = {}
+        c = 0; pl = 0; first = True
+        for s in syms:
+            L = cl[s]
+            if L == 0: continue
+            if first:  pl = L; first = False
+            elif L != pl: c <<= (L - pl); pl = L
+            code_to[(L, c)] = s
+            c += 1
+        maxL = max(cl) if any(cl) else 0
+
+        bits = []
+        for b in huff:
+            for i in range(7, -1, -1): bits.append((b >> i) & 1)
+
+        if bd == 4:
+            n = orig_len * 2
+            n_rbytes = (n + 1) // 2
+        else:
+            n = (orig_len + wbytes - 1) // wbytes
+            n_rbytes = n * wbytes
+
+        rbytes = bytearray()
+        bpos = 0; nb = len(bits)
+        while len(rbytes) < n_rbytes and bpos < nb:
+            found = False
+            for L in range(1, maxL + 1):
+                if bpos + L > nb: break
+                v = 0
+                for j in range(L): v = (v << 1) | bits[bpos + j]
+                if (L, v) in code_to:
+                    rbytes.append(code_to[(L, v)])
+                    bpos += L; found = True; break
+            if not found:
+                raise TransformError("T58 huff dec")
+        if len(rbytes) != n_rbytes:
+            raise TransformError("T58 huff len")
+
+        # ---- unpack residuals -----------------------------------------
+        if bd == 4:
+            residuals = []
+            for b in rbytes:
+                residuals.append((b >> 4) & 0xF)
+                residuals.append(b & 0xF)
+            residuals = residuals[:n]
+        elif bd == 16:
+            residuals = [int.from_bytes(rbytes[i:i + 2], 'big')
+                         for i in range(0, len(rbytes), 2)]
+        elif bd == 32:
+            residuals = [int.from_bytes(rbytes[i:i + 4], 'big')
+                         for i in range(0, len(rbytes), 4)]
+        else:
+            residuals = [int.from_bytes(rbytes[i:i + 8], 'big')
+                         for i in range(0, len(rbytes), 8)]
+
+        # ---- rebuild words (mirror of encoder) ------------------------
+        fibs = self.fibonacci or [0, 1]
+        Lf = len(fibs)
+        words = [0] * n
+        last_after = {}
+        for i in range(n):
+            if pred_code == 0:
+                p = const
+            elif pred_code == 1:
+                p = const if i == 0 else (words[i - 1] + fibs[i % Lf]) & mask
+            else:
+                p = const if i == 0 else last_after.get(words[i - 1], const)
+            w = (residuals[i] + p) & mask
+            words[i] = w
+            if i >= 1:
+                last_after[words[i - 1]] = w
+
+        # ---- repack to bytes ------------------------------------------
+        if bd == 4:
+            out = bytearray()
+            for i in range(0, n, 2):
+                hi = words[i] & 0xF
+                lo = words[i + 1] & 0xF if i + 1 < n else 0
+                out.append((hi << 4) | lo)
+            return bytes(out[:orig_len])
+        out = bytearray()
+        for w in words:
+            out.extend(w.to_bytes(wbytes, 'big'))
+        return bytes(out[:orig_len])
+
     def _dynamic(self, n):
         def tf(data):
             if not data: return b''
@@ -1621,7 +1876,11 @@ class UnifiedCompressor:
         for i in range(48, 57):
             f, r = self._dynamic(i); self.fwd_transforms[i] = f; self.rev_transforms[i] = r
         self.fwd_transforms[57] = self.transform_57; self.rev_transforms[57] = self.reverse_transform_57
-        for i in range(58, 256):
+        # ★ Algorithm #58 — Fibonacci + constant + LZ-77 predictor + Huffman
+        #   prefix coding + bit-depth {4,16,32,64} + SHA-256 whitening.
+        self.fwd_transforms[58] = self.transform_58
+        self.rev_transforms[58] = self.reverse_transform_58
+        for i in range(59, 256):
             f, r = self._dynamic(i); self.fwd_transforms[i] = f; self.rev_transforms[i] = r
         self.fwd_transforms[256] = self.transform_256; self.rev_transforms[256] = self.reverse_transform_256
 
@@ -1661,13 +1920,6 @@ class UnifiedCompressor:
             return 3, (256 + data[1] * 256 + data[2],)
         return 0, ()
 
-    # ---------------- Backend with flag ----------------
-    #  flag 0 = raw           (no wrapper)
-    #  flag 1 = zstd          (magic stripped)
-    #  flag 2 = paq           (full output)
-    #  flag 3 = paq short     (header trimmed)
-    #  flag 4 = brotli
-    #  flag 5 = LZMA          (preset 9e, raw stream)   ← NEW
     def _compress_backend(self, data):
         cands = [(0, data)]
         try:
@@ -1905,13 +2157,11 @@ class UnifiedCompressor:
         for t in reversed(seq): r = self.rev_transforms[t](r)
         return r
 
-    # 8-byte truncated SHA-256 tag (was 32 bytes)
     def _wrap_with_hash(self, payload, original):
         return MAGIC + hashlib.sha256(original).digest()[:HASH_LEN] + payload
     def _unwrap_and_check(self, blob):
         if not blob.startswith(MAGIC): raise IntegrityError("Not PJP4.")
         if len(blob) < HEADER_LEN: raise IntegrityError("Truncated PJP4.")
-        # FIX: correct slice so exactly HASH_LEN bytes are extracted
         return blob[MAGIC_LEN:MAGIC_LEN + HASH_LEN], blob[HEADER_LEN:]
 
     def _atomic_write(self, path, data):
@@ -1962,7 +2212,6 @@ class UnifiedCompressor:
                                        f"transform #{t} (zstd, -1 byte)"))
                     counts["b"] += 1
                 elif flag in (2, 3):                        # paq (full or short)
-                    # Store full paq output for .cN so decompress is unambiguous
                     try:
                         full = paq.compress(tr) if paq is not None else body
                         candidates.append((f".c{t}", full,
@@ -2018,7 +2267,6 @@ class UnifiedCompressor:
         best_ext, best_payload, best_label = ranked[0]
         best_size = len(best_payload)
 
-        # Delete ALL pre-existing outputs for this input
         removed = 0
         for t in range(1, 257):
             for tag in ("a", "b", "c", "d", "e"):
@@ -2064,7 +2312,6 @@ class UnifiedCompressor:
     #  Decompression
     # ================================================================
     def decompress_file(self, infile, outfile=""):
-        # --- stripped twins .bN / .cN / .dN / .eN ---
         for tag, backend_name, decoder in (
             ("b", "zstd",   lambda blob: zstd_dctx.decompress(b'\x28\xb5\x2f\xfd' + blob)),
             ("c", "paq",    lambda blob: paq.decompress(blob) if paq is not None else None),
@@ -2100,7 +2347,6 @@ class UnifiedCompressor:
             print(f"Decompressed → {outfile} ({len(original)} bytes)")
             return True
 
-        # --- .aN ---
         m = re.search(r'\.a(\d+)$', infile, flags=re.IGNORECASE)
         if m:
             tnum = int(m.group(1))
@@ -2130,7 +2376,6 @@ class UnifiedCompressor:
             print(f"Decompressed → {outfile} ({len(original)} bytes)")
             return True
 
-        # --- .pjp2 / .pjp3 ---
         try:
             with open(infile, 'rb') as f: blob = f.read()
         except Exception as e:
@@ -2233,7 +2478,7 @@ class UnifiedCompressor:
         print("\n.aN/.bN/.cN/.dN/.eN size-delta test...")
         try:
             counts = {"a":0, "b":0, "c":0, "d":0, "e":0}
-            for t in (1, 17, 33, 45, 100, 200, 256):
+            for t in (1, 17, 33, 45, 58, 100, 200, 256):
                 d0 = b"The quick brown fox jumps over the lazy dog. " * 4
                 tr = self.fwd_transforms[t](d0)
                 if not self._verify_lossless(d0, tr, self.rev_transforms[t]):
@@ -2274,6 +2519,31 @@ class UnifiedCompressor:
         except Exception as e:
             print(f"  FAIL twins: {e}"); return False
 
+        # ★ Algorithm #58 round-trip test
+        print("\nAlgorithm #58 round-trip test...")
+        try:
+            rng58 = random.Random(58)
+            cases = [
+                b"",
+                b"A",
+                b"AB" * 40,
+                bytes(rng58.randint(0, 255) for _ in range(257)),
+                (b"The quick brown fox jumps over the lazy dog. " * 20),
+                b"\x00" * 500,
+                b"\xff" * 500,
+                bytes(rng58.randint(0, 255) for _ in range(2000)),
+            ]
+            for d0 in cases:
+                tr = self.transform_58(d0)
+                rt = self.reverse_transform_58(tr)
+                if rt != d0:
+                    print(f"  FAIL len={len(d0)}"); return False
+            sample_out = self.transform_58(b'A' * 40)
+            print(f"  PASS #58 on {len(cases)} cases  "
+                  f"(sample: 40B → {len(sample_out)}B)")
+        except Exception as e:
+            print(f"  FAIL #58: {e}"); return False
+
         print("\n[All checks passed]")
         return True
 
@@ -2287,7 +2557,8 @@ def main():
     print("Method E → input.cN    (paq-only,    flag stripped, -1 byte)")
     print("Method F → input.dN    (brotli-only, flag stripped, -1 byte)")
     print("Method G → input.eN    (lzma-only,   flag stripped, -1 byte)")
-    print("★ Compress evaluates all candidates and keeps ONLY THE SMALLEST. ★\n")
+    print("★ Compress evaluates all candidates and keeps ONLY THE SMALLEST. ★")
+    print("★ Algorithm #58: Fibonacci + constant + LZ-77 + Huffman + SHA-256. ★\n")
 
     dl = input("Download 12 dictionaries from Google Drive? (y/n) [y]: ").strip().lower()
     try_download = (dl != 'n')
