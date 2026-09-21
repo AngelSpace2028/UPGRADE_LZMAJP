@@ -14,6 +14,9 @@ Method G → input.eN   : same as .aN but lzma  flag stripped  (-1 byte)
 ★ COMPRESS evaluates ALL candidates in RAM, keeps ONLY the single
   SMALLEST file, and deletes every other potential output.
 
+★ OPTION 4 — LZMA-ONLY tournament: sweeps all 256 transforms using
+  LZMA exclusively, keeps only the smallest .eN file.
+
 ★ Algorithm #58 (NEW) — Fibonacci + constant + LZ-77 predictor,
   Huffman prefix coding, bit-depth {4,16,32,64} chosen by SHA-256,
   deterministic SHA-256 counter-mode whitening (NOT for passwords).
@@ -2172,7 +2175,7 @@ class UnifiedCompressor:
         os.replace(tmp, path)
 
     # ================================================================
-    # ★  ONE-WINNER TOURNAMENT
+    # ★  ONE-WINNER TOURNAMENT (Option 1)
     # ================================================================
     def compress_file_dual(self, infile, time_limit=None):
         try:
@@ -2300,6 +2303,91 @@ class UnifiedCompressor:
         else:
             print()
         print(f"  Uncompressed: {len(data)} bytes")
+
+        if len(ranked) > 1:
+            print("\nTop 5 runners-up (discarded):")
+            for ext, payload, label in ranked[1:6]:
+                diff = len(payload) - best_size
+                print(f"  {ext:>8}  {len(payload):>10} bytes  "
+                      f"(+{diff} vs winner)  {label}")
+
+    # ================================================================
+    # ★  OPTION 4 — LZMA-ONLY TOURNAMENT (256 transforms × lzma only)
+    # ================================================================
+    def compress_file_lzma_only(self, infile, time_limit=None):
+        try:
+            with open(infile, 'rb') as f:
+                data = f.read()
+        except Exception as e:
+            print(f"Error reading: {e}"); return
+
+        print(f"\nInput: {len(data)} bytes")
+        print("=" * 64)
+        print("LZMA-ONLY tournament (all 256 transforms, backend = lzma only)")
+        print("  .e1 … .e256   (transform #N + lzma, flag stripped, -1 byte)")
+        print("Exactly ONE smallest file will be kept.\n")
+
+        candidates = []
+        st = time.time()
+        for t in range(1, 257):
+            if time_limit and (time.time() - st) > time_limit:
+                break
+            try:
+                tr = self.fwd_transforms[t](data)
+                if not self._verify_lossless(data, tr, self.rev_transforms[t]):
+                    continue
+                try:
+                    body = lzma.compress(tr, preset=9 | lzma.PRESET_EXTREME)
+                except Exception:
+                    continue
+                candidates.append((f".e{t}", body,
+                                   f"transform #{t} (lzma-only, -1 byte)"))
+            except Exception:
+                continue
+
+        if not candidates:
+            print("\nNo valid LZMA candidates produced. Nothing written.")
+            return
+
+        ranked = sorted(candidates, key=lambda x: len(x[1]))
+        best_ext, best_payload, best_label = ranked[0]
+        best_size = len(best_payload)
+
+        # Clean up any old tournament outputs
+        removed = 0
+        for t in range(1, 257):
+            for tag in ("a", "b", "c", "d", "e"):
+                p = f"{infile}.{tag}{t}"
+                if os.path.exists(p):
+                    try: os.remove(p); removed += 1
+                    except Exception: pass
+        for ext in (".pjp2", ".pjp3"):
+            p = infile + ext
+            if os.path.exists(p):
+                try: os.remove(p); removed += 1
+                except Exception: pass
+        if removed:
+            print(f"  Removed {removed} stale output file(s).")
+
+        outpath = infile + best_ext
+        try:
+            self._atomic_write(outpath, best_payload)
+        except Exception as e:
+            print(f"Error writing winner: {e}"); return
+
+        print("\n" + "=" * 64)
+        print(f"Evaluated {len(candidates)} LZMA candidates. "
+              f"Kept 1, discarded {len(candidates) - 1}.")
+        print(f"WINNER: {outpath}")
+        print(f"  Extension : {best_ext}")
+        print(f"  Method    : {best_label}")
+        print(f"  Size      : {best_size} bytes", end="")
+        if data:
+            print(f"  ({best_size / len(data) * 100:.2f}%)")
+        else:
+            print()
+        print(f"  Uncompressed: {len(data)} bytes")
+        print(f"  Sweep time: {time.time() - st:.2f}s")
 
         if len(ranked) > 1:
             print("\nTop 5 runners-up (discarded):")
@@ -2544,6 +2632,24 @@ class UnifiedCompressor:
         except Exception as e:
             print(f"  FAIL #58: {e}"); return False
 
+        # LZMA-only tournament smoke test
+        print("\nLZMA-only tournament smoke test...")
+        try:
+            d0 = b"The quick brown fox jumps over the lazy dog. " * 8
+            best_len = None; best_t = None
+            for t in (1, 45, 58, 100, 256):
+                tr = self.fwd_transforms[t](d0)
+                if not self._verify_lossless(d0, tr, self.rev_transforms[t]):
+                    continue
+                c = lzma.compress(tr, preset=9 | lzma.PRESET_EXTREME)
+                if best_len is None or len(c) < best_len:
+                    best_len = len(c); best_t = t
+            if best_t is None:
+                print("  FAIL: no lzma candidate"); return False
+            print(f"  PASS lzma-only sweep (winner t={best_t}, {best_len} bytes)")
+        except Exception as e:
+            print(f"  FAIL lzma-only: {e}"); return False
+
         print("\n[All checks passed]")
         return True
 
@@ -2570,6 +2676,7 @@ def main():
         print("1) Compress (one-winner tournament, 1 file left)")
         print("2) Decompress (auto-detect .pjp2/.pjp3/.aN/.bN/.cN/.dN/.eN)")
         print("3) Full self-test")
+        print("4) Compress LZMA-ONLY tournament (256 transforms × lzma)")
         print("0) Exit")
         ch = input("> ").strip()
         if ch == "1":
@@ -2591,6 +2698,9 @@ def main():
                 else: print("Try again or Enter to cancel.")
         elif ch == "3":
             c.full_self_test()
+        elif ch == "4":
+            f = input("Input file: ").strip()
+            c.compress_file_lzma_only(f)
         elif ch == "0":
             break
         else:
