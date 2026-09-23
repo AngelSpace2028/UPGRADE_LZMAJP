@@ -5,7 +5,7 @@ PAQJPVG_8.5-4 Replit App by Jurijus Pacalovas 8.5L-4 PAQ level 9 and zstandard l
 
 PJP-10 The best PAQ level default and zstandard level 22 Done all 2026 year in May 6 by Jurijus Pacalovas and Vincent Geoghegan
 
-Majorana.py have Written By Jurijus Pacalovas in September 23 in 2026 year
+JP.py have Written By Jurijus Pacalovas in September 23 in 2026 year for Majorana Chip
 Example6.7.txt Lorem 1024 bytes predict 250 bytes 
 
 Python 3.7.4
@@ -34,4 +34,4 @@ We have written 1 version of software and I helped a little bit Vincent Geoghega
 
 PJP-9
 
-The best of the best PJP-9
+The best of the best JP
