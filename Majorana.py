@@ -1885,10 +1885,24 @@ class Compressor:
 
     # ==================== COMPRESS (prints size after every step) ====================
     def compress(self, infile, pairs=True, multi=False, timeout=None):
+        """
+        pairs: True (all 65535 pairs), False (skip pairs),
+               or an int 1..65535 (walk only that many pairs).
+        """
         try:
             with open(infile, 'rb') as f: data = f.read()
         except Exception as e:
             print(f"Error reading: {e}"); return
+
+        # Normalize the pairs argument
+        if isinstance(pairs, bool):
+            if pairs: pair_list = self.pairs
+            else: pair_list = []
+        else:
+            try: n_pairs = int(pairs)
+            except (TypeError, ValueError): n_pairs = 0
+            n_pairs = max(0, min(n_pairs, len(self.pairs)))
+            pair_list = self.pairs[:n_pairs] if n_pairs > 0 else []
 
         # Force the true slow path so every single and every pair runs
         # through the full backend, and the printed size is the real size.
@@ -1925,12 +1939,12 @@ class Compressor:
                 continue
         print(f"  singles done: {ns}  ({time.time()-st:.1f}s)  best={best} bytes")
 
-        # ---- pairs 1..65535 ----
-        if pairs:
-            total = len(self.pairs)
+        # ---- pairs: walk only pair_list ----
+        if pair_list:
+            total = len(pair_list)
             t0 = time.time()
-            print(f"  pairs: walking all {total} pairs with full backends ...")
-            for i, (a, b) in enumerate(self.pairs):
+            print(f"  pairs: walking {total} of {len(self.pairs)} pairs with full backends ...")
+            for i, (a, b) in enumerate(pair_list):
                 if timeout and time.time()-st > timeout:
                     print(f"  Time limit reached at pair {i+1}/{total}")
                     break
@@ -1949,7 +1963,7 @@ class Compressor:
                 except Exception as e:
                     print(f"  [pair {i+1:>5}/{total} #{a:>3}->#{b:>3}] FAILED ({e})")
                     continue
-            print(f"  pairs done: {len(self.pairs)}  ({time.time()-t0:.1f}s)  "
+            print(f"  pairs done: {total}  ({time.time()-t0:.1f}s)  "
                   f"best={best} bytes")
 
         # ---- optional multi-pair chains ----
@@ -2114,8 +2128,22 @@ def main():
         print("0) Exit")
         ch = input("> ").strip()
         if ch == "1":
+            # ---- ask for number of pairs (1..65535) BEFORE the filename ----
+            max_pairs = len(c.pairs)
+            while True:
+                raw = input(f"Number of pairs to try (1-{max_pairs}) [all]: ").strip()
+                if raw == "":
+                    n_pairs = max_pairs
+                    break
+                try:
+                    n_pairs = int(raw)
+                    if 1 <= n_pairs <= max_pairs:
+                        break
+                    print(f"  Must be between 1 and {max_pairs}.")
+                except ValueError:
+                    print("  Please enter a whole number.")
             f = input("Input file: ").strip()
-            c.compress(f, pairs=True, multi=False)
+            c.compress(f, pairs=n_pairs, multi=False)
         elif ch == "2":
             f = input("Compressed: ").strip(); o = input("Output (blank=auto): ").strip()
             c.decompress(f, o)
