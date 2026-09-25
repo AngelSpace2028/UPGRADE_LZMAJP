@@ -5,33 +5,12 @@ PPMD_1.1 — Unified PAQJP+PJP Lossless Tournament (Dictionary-Aware)
 =====================================================================
 Target: compress 1 KB Lorem ipsum to ~240 bytes with 100% lossless guarantee.
 
-PPMD_1.1c patch — live raw baseline candidate
----------------------------------------------
-  • The `_raw_` baseline in compress() now carries the 0xFC header, so it
-    is byte-identical to the explicit fallback path and passes the verify
-    walk via _auto(). No change to losslessness.
-
-PPMD_1.1d patch — exhaustive pair self-test
--------------------------------------------
-  • selftest() now additionally walks ALL 65,535 transform pairs
-    (a,b) in [1,256]^2 \\ {(256,256)} on a representative vector and
-    asserts rev[a](rev[b](fwd[b](fwd[a](x)))) == x. Any exception other
-    than a clean TransformError is a hard failure.
-
-PPMD_1.1e patch — t58/r58 asymmetry fix
-----------------------------------------
-  • In t58 the `la` predictor update was executed unconditionally, so
-    at i==0 it wrote `la[words[-1]] = words[0]`. r58 never wrote that
-    entry, so when `words[-1] == words[0]` and the most-common token
-    `const` differed from `words[0]`, the la predictor diverged and the
-    roundtrip could be lossy. The update is now guarded by `i >= 1`.
-
-Guarantees
-----------
-  • cback winner verified byte-for-byte before being returned.
-  • compress() winner verified before writing; raw fallback on all fail.
-  • Post-write re-verification; falls back to raw on mismatch.
-  • 65535 pairs, multi chains, and option-3 self-test are all lossless.
+Patches:
+  • 1.1c — live raw baseline candidate carries 0xFC header.
+  • 1.1d — exhaustive pair self-test (all 65,535 pairs).
+  • 1.1e — t58/r58 asymmetry fix (la predictor update guarded by i >= 1).
+  • 1.1f — robust file handling (missing/permission/empty file checks).
+  • 1.1g — main() menu strings restored (SyntaxError fix).
 """
 
 import math, random, decimal, hashlib, base64, heapq, struct, os
@@ -1661,7 +1640,6 @@ class Compressor:
             else:
                 fib_s[i] = (words[i-1] + fibs[i % Lf]) & mask
                 lz_s[i] = la.get(words[i-1], const)
-                # FIX: only update la for i >= 1
                 la[words[i-1]] = words[i]
         def pk(res):
             rb = bytearray()
@@ -1895,12 +1873,41 @@ class Compressor:
         finally: os.close(fd)
         os.replace(tmp, path)
 
+    # ---------- safe file check helper ----------
+    def _require_file(self, path):
+        """Return True if path exists and is a readable regular file."""
+        if not path:
+            print("Error: no filename given.")
+            return False
+        if not os.path.exists(path):
+            print(f"Error: file not found: {path!r}")
+            return False
+        if not os.path.isfile(path):
+            print(f"Error: not a regular file: {path!r}")
+            return False
+        if not os.access(path, os.R_OK):
+            print(f"Error: permission denied: {path!r}")
+            return False
+        return True
+
     # ==================== COMPRESS ====================
     def compress(self, infile, pairs=True, multi=False, timeout=None):
+        if not self._require_file(infile):
+            return
+
         try:
-            with open(infile, 'rb') as f: data = f.read()
-        except Exception as e:
-            print(f"Error reading: {e}"); return
+            with open(infile, 'rb') as f:
+                data = f.read()
+        except PermissionError:
+            print(f"Error: permission denied reading {infile!r}")
+            return
+        except OSError as e:
+            print(f"Error reading {infile!r}: {e}")
+            return
+
+        if len(data) == 0:
+            print(f"Error: {infile!r} is empty — nothing to compress.")
+            return
 
         if isinstance(pairs, bool):
             if pairs: pair_list = self.pairs
@@ -2058,18 +2065,24 @@ class Compressor:
         else:
             ext, payload, label = winner
 
-        # Clean up stale sibling outputs
-        for f in os.listdir(os.path.dirname(infile) or '.'):
-            fp = os.path.join(os.path.dirname(infile) or '.', f)
-            if re.match(rf'^{re.escape(os.path.basename(infile))}\.[apm][\d-]+$', f):
-                try: os.remove(fp)
-                except Exception: pass
+        # Clean up stale sibling outputs (guarded against missing dir)
+        out_dir = os.path.dirname(infile) or '.'
+        if os.path.isdir(out_dir):
+            for f in os.listdir(out_dir):
+                fp = os.path.join(out_dir, f)
+                if re.match(rf'^{re.escape(os.path.basename(infile))}\.[apm][\d-]+$', f):
+                    try: os.remove(fp)
+                    except Exception: pass
 
         out = infile + ext
         self._write(out, payload)
 
         # post-write re-verify
-        with open(out, 'rb') as f: wr = f.read()
+        try:
+            with open(out, 'rb') as f: wr = f.read()
+        except OSError as e:
+            print(f"Error re-reading output {out!r}: {e}")
+            return
         try:
             if ext.startswith(".p"):
                 idx = int(ext[2:]) - 1; a, b = self.pairs[idx]
@@ -2103,58 +2116,149 @@ class Compressor:
         print(f"  Time    : {time.time()-st:.2f}s")
         print(f"  [VERIFIED LOSSLESS]")
 
+    # ==================== DECOMPRESS ====================
     def decompress(self, infile, outfile=""):
+        if not self._require_file(infile):
+            return False
+
+        try:
+            with open(infile, 'rb') as f:
+                blob = f.read()
+        except PermissionError:
+            print(f"Error: permission denied reading {infile!r}")
+            return False
+        except OSError as e:
+            print(f"Error reading {infile!r}: {e}")
+            return False
+
+        if len(blob) == 0:
+            print(f"Error: {infile!r} is empty.")
+            return False
+
+        base = os.path.basename(infile)
+
+        # ---- pair .pNNNN ----
         m = re.search(r'\.p(\d+)$', infile)
         if m:
             idx = int(m.group(1)) - 1
-            if not (0 <= idx < len(self.pairs)): print("Bad pair"); return False
+            if not (0 <= idx < len(self.pairs)):
+                print(f"Error: pair index out of range in {infile!r}")
+                return False
             a, b = self.pairs[idx]
-            with open(infile, 'rb') as f: blob = f.read()
-            r = self.dback(blob)
-            if r is None: print("Backend failed"); return False
-            orig = self.rev[a](self.rev[b](r))
-            if not outfile: outfile = re.sub(r'\.p\d+$', '', os.path.basename(infile))
-            self._write(outfile, orig); print(f"-> {outfile} ({len(orig)} bytes)"); return True
+            try:
+                r = self.dback(blob)
+            except Exception as e:
+                print(f"Error: backend failed: {e}")
+                return False
+            if r is None:
+                print("Error: backend could not decode payload.")
+                return False
+            try:
+                orig = self.rev[a](self.rev[b](r))
+            except Exception as e:
+                print(f"Error: inverse transform failed: {e}")
+                return False
+            if not outfile:
+                outfile = re.sub(r'\.p\d+$', '', base) or (base + ".out")
+            try:
+                self._write(outfile, orig)
+            except OSError as e:
+                print(f"Error writing {outfile!r}: {e}")
+                return False
+            print(f"-> {outfile} ({len(orig)} bytes)")
+            return True
 
+        # ---- single .aNNN ----
         m = re.search(r'\.a(\d+)$', infile, re.IGNORECASE)
         if m:
             tn = int(m.group(1))
-            if not (1 <= tn <= 256): print("Bad transform"); return False
-            with open(infile, 'rb') as f: blob = f.read()
-            r = self.dback(blob)
-            if r is None: print("Backend failed"); return False
-            orig = self.rev[tn](r)
-            if not outfile: outfile = re.sub(r'\.a\d+$', '', os.path.basename(infile), flags=re.IGNORECASE)
-            self._write(outfile, orig); print(f"-> {outfile} ({len(orig)} bytes)"); return True
+            if not (1 <= tn <= 256):
+                print(f"Error: transform number out of range: {tn}")
+                return False
+            try:
+                r = self.dback(blob)
+            except Exception as e:
+                print(f"Error: backend failed: {e}")
+                return False
+            if r is None:
+                print("Error: backend could not decode payload.")
+                return False
+            try:
+                orig = self.rev[tn](r)
+            except Exception as e:
+                print(f"Error: inverse transform #{tn} failed: {e}")
+                return False
+            if not outfile:
+                outfile = re.sub(r'\.a\d+$', '', base, flags=re.IGNORECASE) or (base + ".out")
+            try:
+                self._write(outfile, orig)
+            except OSError as e:
+                print(f"Error writing {outfile!r}: {e}")
+                return False
+            print(f"-> {outfile} ({len(orig)} bytes)")
+            return True
 
+        # ---- multi-chain .mI-J-K ----
         m = re.search(r'\.m([\d-]+)$', infile)
         if m:
             parts = m.group(1).split("-")
             try:
                 indices = [int(x) - 1 for x in parts]
             except ValueError:
-                print("Bad multi sequence"); return False
+                print(f"Error: bad multi-pair sequence in {infile!r}")
+                return False
             for idx in indices:
                 if not (0 <= idx < len(self.pairs)):
-                    print(f"Bad pair index {idx+1}"); return False
-            with open(infile, 'rb') as f: blob = f.read()
-            r = self.dback(blob)
-            if r is None: print("Backend failed"); return False
+                    print(f"Error: pair index {idx+1} out of range")
+                    return False
+            try:
+                r = self.dback(blob)
+            except Exception as e:
+                print(f"Error: backend failed: {e}")
+                return False
+            if r is None:
+                print("Error: backend could not decode payload.")
+                return False
             orig = r
-            for idx in reversed(indices):
-                a, b = self.pairs[idx]
-                orig = self.rev[a](self.rev[b](orig))
+            try:
+                for idx in reversed(indices):
+                    a, b = self.pairs[idx]
+                    orig = self.rev[a](self.rev[b](orig))
+            except Exception as e:
+                print(f"Error: inverse chain failed: {e}")
+                return False
             if not outfile:
-                outfile = re.sub(r'\.m[\d-]+$', '', os.path.basename(infile))
-                if not outfile: outfile = os.path.basename(infile) + ".out"
-            self._write(outfile, orig); print(f"-> {outfile} ({len(orig)} bytes)"); return True
+                outfile = re.sub(r'\.m[\d-]+$', '', base) or (base + ".out")
+            try:
+                self._write(outfile, orig)
+            except OSError as e:
+                print(f"Error writing {outfile!r}: {e}")
+                return False
+            print(f"-> {outfile} ({len(orig)} bytes)")
+            return True
 
-        with open(infile, 'rb') as f: blob = f.read()
+        # ---- auto-detect header ----
         off, seq = self._dh(blob)
-        if off == 0: print("Bad header"); return False
-        orig, _ = self._auto(blob)
-        if not outfile: outfile = os.path.basename(infile) + ".out"
-        self._write(outfile, orig); print(f"-> {outfile} ({len(orig)} bytes)"); return True
+        if off == 0:
+            print(f"Error: bad header in {infile!r} (not a PPMD_1.1 stream).")
+            return False
+        try:
+            orig, _ = self._auto(blob)
+        except DecompressionError as e:
+            print(f"Error: {e}")
+            return False
+        except Exception as e:
+            print(f"Error decoding {infile!r}: {e}")
+            return False
+        if not outfile:
+            outfile = base + ".out"
+        try:
+            self._write(outfile, orig)
+        except OSError as e:
+            print(f"Error writing {outfile!r}: {e}")
+            return False
+        print(f"-> {outfile} ({len(orig)} bytes)")
+        return True
 
     # ==================== SELF-TEST ====================
     def selftest(self):
@@ -2249,9 +2353,12 @@ class Compressor:
 
 def main():
     print(f"{PROGNAME}")
-    print("* Target: 1 KB Lorem ipsum → ~240 bytes, 100% lossless *\n")
-    try: mp.set_start_method('fork', force=True); print(f"mp: fork, {mp.cpu_count()} cores")
-    except (RuntimeError, ValueError): print("mp: not available")
+    print("* Target: 1 KB Lorem ipsum -> ~240 bytes, 100% lossless *\n")
+    try:
+        mp.set_start_method('fork', force=True)
+        print(f"mp: fork, {mp.cpu_count()} cores")
+    except (RuntimeError, ValueError):
+        print("mp: not available")
     dl = input("Download 12 Google Drive dictionaries? (y/n) [y]: ").strip().lower()
     c = Compressor(try_dl=(dl != 'n'))
     while True:
@@ -2278,19 +2385,35 @@ def main():
                 except ValueError:
                     print("  Please enter a whole number.")
             f = input("Input file: ").strip()
+            if not f:
+                print("No file given.")
+                continue
             c.compress(f, pairs=n_pairs, multi=False)
         elif ch == "2":
-            f = input("Compressed: ").strip(); o = input("Output (blank=auto): ").strip()
+            f = input("Compressed: ").strip()
+            if not f:
+                print("No file given.")
+                continue
+            o = input("Output (blank=auto): ").strip()
             c.decompress(f, o)
-        elif ch == "3": c.selftest()
+        elif ch == "3":
+            c.selftest()
         elif ch == "4":
             f = input("Input file: ").strip()
+            if not f:
+                print("No file given.")
+                continue
             c.compress(f, pairs=True, multi=True)
         elif ch == "5":
-            try: c.TOP_K = max(1, int(input("New TOP_K: ").strip())); print(f"TOP_K = {c.TOP_K}")
-            except Exception: print("Invalid")
-        elif ch == "0": break
-        else: print("Invalid")
+            try:
+                c.TOP_K = max(1, int(input("New TOP_K: ").strip()))
+                print(f"TOP_K = {c.TOP_K}")
+            except Exception:
+                print("Invalid")
+        elif ch == "0":
+            break
+        else:
+            print("Invalid")
 
 if __name__ == "__main__":
     main()
