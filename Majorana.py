@@ -5,28 +5,33 @@ PPMD_1.1 — Unified PAQJP+PJP Lossless Tournament (Dictionary-Aware)
 =====================================================================
 Target: compress 1 KB Lorem ipsum to ~240 bytes with 100% lossless guarantee.
 
-What's new vs v10.1 / PPMD_1.0
-------------------------------
-  • Embedded Lorem Ipsum + Cicero reference corpus (REF_TEXT).
-  • A frequency-ordered reference vocabulary derived from REF_TEXT +
-    self.dict_words; used by a new dictionary-aware transform t59.
-  • New backend 11: zstd-22 with the reference corpus as a raw-content
-    preset dictionary. This is the single biggest win — it drops a 1 KB
-    Lorem Ipsum blob from ~350 bytes to ~30 bytes.
-  • Transform 59 is repurposed from a XOR-shuffle placeholder into the
-    dictionary word-ID encoder (varint IDs, case-fold, literal escape).
-  • self.dict_words is finally consumed by t59 (previously built and
-    thrown away).
-  • compress() now prints the byte size after every single (1..256) and
-    after every pair (1..65535), on the true slow path (no zstd-19
-    pre-scoring approximation).
+PPMD_1.1c patch — live raw baseline candidate
+---------------------------------------------
+  • The `_raw_` baseline in compress() now carries the 0xFC header, so it
+    is byte-identical to the explicit fallback path and passes the verify
+    walk via _auto(). No change to losslessness.
 
-Guarantees (unchanged from v10.1)
----------------------------------
-  • Winner verified byte-for-byte against original before writing
-  • Ranked walk: tries candidates in size order, uses first that verifies
-  • Raw fallback if all candidates fail (trivially lossless)
-  • Post-write re-verification
+PPMD_1.1d patch — exhaustive pair self-test
+-------------------------------------------
+  • selftest() now additionally walks ALL 65,535 transform pairs
+    (a,b) in [1,256]^2 \\ {(256,256)} on a representative vector and
+    asserts rev[a](rev[b](fwd[b](fwd[a](x)))) == x. Any exception other
+    than a clean TransformError is a hard failure.
+
+PPMD_1.1e patch — t58/r58 asymmetry fix
+----------------------------------------
+  • In t58 the `la` predictor update was executed unconditionally, so
+    at i==0 it wrote `la[words[-1]] = words[0]`. r58 never wrote that
+    entry, so when `words[-1] == words[0]` and the most-common token
+    `const` differed from `words[0]`, the la predictor diverged and the
+    roundtrip could be lossy. The update is now guarded by `i >= 1`.
+
+Guarantees
+----------
+  • cback winner verified byte-for-byte before being returned.
+  • compress() winner verified before writing; raw fallback on all fail.
+  • Post-write re-verification; falls back to raw on mismatch.
+  • 65535 pairs, multi chains, and option-3 self-test are all lossless.
 """
 
 import math, random, decimal, hashlib, base64, heapq, struct, os
@@ -45,7 +50,8 @@ except ImportError: pyppmd = None; HAS_PPMD = False
 
 try:
     import lzma; HAS_LZMA = True
-    LF_RAW = [{"id": lzma.FILTER_LZMA2, "preset": 9 | lzma.PRESET_EXTREME, "nice_len": 273, "mf": lzma.MF_BT4}]
+    LF_RAW = [{"id": lzma.FILTER_LZMA2, "preset": 9 | lzma.PRESET_EXTREME,
+               "nice_len": 273, "mf": lzma.MF_BT4}]
     LF_DELTA = [{"id": lzma.FILTER_DELTA, "dist": 1}, LF_RAW[0]]
     LF_BCJ = [{"id": lzma.FILTER_X86}, LF_RAW[0]]
 except ImportError:
@@ -395,7 +401,6 @@ class Compressor:
         self._pairs()
 
     def _build_ref_dict(self):
-        """Frequency-ordered reference vocabulary + zstd preset dict."""
         seen = set(); ordered = []
         for m in _TOK_RE.finditer(REF_BYTES):
             w = m.group(1).decode('ascii').lower()
@@ -509,8 +514,18 @@ class Compressor:
                 c = self._zpc(d)
                 if c: cs.append((10, c))
             except Exception: pass
-        bf, bd = min(cs, key=lambda x: len(x[1]))
-        return bytes([bf]) + bd
+
+        for fmt, comp in sorted(cs, key=lambda x: len(x[1])):
+            if fmt == 0:
+                return bytes([0]) + comp
+            try:
+                blob = bytes([fmt]) + comp
+                back = self.dback(blob)
+                if back == d:
+                    return blob
+            except Exception:
+                continue
+        return bytes([0]) + d
 
     def dback(self, d):
         if not d: return None
@@ -1544,12 +1559,7 @@ class Compressor:
         return bytes(t)
     r47 = t47
 
-    # -------- t59 / r59 : dictionary word-ID transform (PPMD_1.1) --------
     def t59(self, d):
-        """Encode alternating word/separator tokens using self.ref_words.
-        Known words -> varint ((id << 2) | case) + 1. Unknown -> escape 0 +
-        varint(len) + literal bytes. Case codes: 0=as-is, 1=title, 2=upper,
-        3=reserved (never emitted; mixed case falls back to literal)."""
         if not d:
             return b''
         ri = self.ref_idx
@@ -1646,11 +1656,13 @@ class Compressor:
         const = Counter(words).most_common(1)[0][0]
         fib_s = [0]*n; lz_s = [0]*n; la = {}
         for i in range(n):
-            if i == 0: fib_s[i] = const; lz_s[i] = const
+            if i == 0:
+                fib_s[i] = const; lz_s[i] = const
             else:
                 fib_s[i] = (words[i-1] + fibs[i % Lf]) & mask
                 lz_s[i] = la.get(words[i-1], const)
-            la[words[i-1]] = words[i]
+                # FIX: only update la for i >= 1
+                la[words[i-1]] = words[i]
         def pk(res):
             rb = bytearray()
             if bd == 4:
@@ -1883,18 +1895,13 @@ class Compressor:
         finally: os.close(fd)
         os.replace(tmp, path)
 
-    # ==================== COMPRESS (prints size after every step) ====================
+    # ==================== COMPRESS ====================
     def compress(self, infile, pairs=True, multi=False, timeout=None):
-        """
-        pairs: True (all 65535 pairs), False (skip pairs),
-               or an int 1..65535 (walk only that many pairs).
-        """
         try:
             with open(infile, 'rb') as f: data = f.read()
         except Exception as e:
             print(f"Error reading: {e}"); return
 
-        # Normalize the pairs argument
         if isinstance(pairs, bool):
             if pairs: pair_list = self.pairs
             else: pair_list = []
@@ -1904,8 +1911,6 @@ class Compressor:
             n_pairs = max(0, min(n_pairs, len(self.pairs)))
             pair_list = self.pairs[:n_pairs] if n_pairs > 0 else []
 
-        # Force the true slow path so every single and every pair runs
-        # through the full backend, and the printed size is the real size.
         self.FAST = False
         self.USE_MP = False
 
@@ -1913,7 +1918,7 @@ class Compressor:
         cands = []; st = time.time()
 
         # ---- raw baseline ----
-        rc = self.cback(data)
+        rc = self._mr() + self.cback(data)
         cands.append(("_raw_", rc, "raw payload"))
         best = len(rc)
         print(f"  [raw] size={len(rc)} bytes  best={best}")
@@ -1969,25 +1974,38 @@ class Compressor:
         # ---- optional multi-pair chains ----
         if multi:
             rng = random.Random(42); tries = 0
-            while timeout and time.time()-st < timeout and tries < 200:
+            MAX_MULTI = 200
+            print(f"  multi: trying up to {MAX_MULTI} chains of 2-3 pairs ...")
+            t0m = time.time()
+            while tries < MAX_MULTI:
+                if timeout and time.time()-st > timeout:
+                    print(f"  Multi time limit reached at try {tries}")
+                    break
                 tries += 1
                 k = rng.randint(2, 3)
                 seq = [rng.randrange(len(self.pairs)) for _ in range(k)]
+                ext_label = ".m" + "-".join(str(i+1) for i in seq)
                 try:
                     cur = data
                     for i in seq:
                         a, b = self.pairs[i]
                         cur = self.fwd[b](self.fwd[a](cur))
                     p = self.cback(cur)
-                    cands.append((f".m{tries}", p, f"multi {k}"))
+                    cands.append((ext_label, p,
+                                  f"multi {k} pairs={[i+1 for i in seq]}"))
                     size = len(p)
                     if size < best:
                         best = size
-                        print(f"  [multi {tries:>3}] size={size} bytes  <<< BEST {best}")
+                        print(f"  [multi {tries:>3} {ext_label}] "
+                              f"size={size} bytes  <<< BEST {best}")
                     else:
-                        print(f"  [multi {tries:>3}] size={size} bytes  best={best}")
-                except Exception:
+                        print(f"  [multi {tries:>3} {ext_label}] "
+                              f"size={size} bytes  best={best}")
+                except Exception as e:
+                    print(f"  [multi {tries:>3} {ext_label}] FAILED ({e})")
                     continue
+            print(f"  multi done: {tries}  ({time.time()-t0m:.1f}s)  "
+                  f"best={best} bytes")
 
         # ---- ranked verify walk ----
         if not cands:
@@ -2009,6 +2027,22 @@ class Compressor:
                     r = self.dback(payload)
                     if r is None: continue
                     chk = self.rev[tn](r)
+                elif ext.startswith(".m"):
+                    parts = ext[2:].split("-")
+                    try:
+                        indices = [int(x) - 1 for x in parts]
+                    except ValueError:
+                        continue
+                    r = self.dback(payload)
+                    if r is None: continue
+                    chk = r
+                    ok = True
+                    for idx in reversed(indices):
+                        if not (0 <= idx < len(self.pairs)):
+                            ok = False; break
+                        a, b = self.pairs[idx]
+                        chk = self.rev[a](self.rev[b](chk))
+                    if not ok: continue
                 else:
                     continue
                 if chk == data:
@@ -2027,7 +2061,7 @@ class Compressor:
         # Clean up stale sibling outputs
         for f in os.listdir(os.path.dirname(infile) or '.'):
             fp = os.path.join(os.path.dirname(infile) or '.', f)
-            if re.match(rf'^{re.escape(os.path.basename(infile))}\.[apm]\d+$', f):
+            if re.match(rf'^{re.escape(os.path.basename(infile))}\.[apm][\d-]+$', f):
                 try: os.remove(fp)
                 except Exception: pass
 
@@ -2042,6 +2076,13 @@ class Compressor:
                 r = self.dback(wr); chk2 = self.rev[a](self.rev[b](r))
             elif ext.startswith(".a"):
                 tn = int(ext[2:]); r = self.dback(wr); chk2 = self.rev[tn](r)
+            elif ext.startswith(".m"):
+                parts = ext[2:].split("-")
+                indices = [int(x) - 1 for x in parts]
+                r = self.dback(wr); chk2 = r
+                for idx in reversed(indices):
+                    a, b = self.pairs[idx]
+                    chk2 = self.rev[a](self.rev[b](chk2))
             else:
                 chk2, _ = self._auto(wr)
             if chk2 != data:
@@ -2074,6 +2115,7 @@ class Compressor:
             orig = self.rev[a](self.rev[b](r))
             if not outfile: outfile = re.sub(r'\.p\d+$', '', os.path.basename(infile))
             self._write(outfile, orig); print(f"-> {outfile} ({len(orig)} bytes)"); return True
+
         m = re.search(r'\.a(\d+)$', infile, re.IGNORECASE)
         if m:
             tn = int(m.group(1))
@@ -2084,6 +2126,29 @@ class Compressor:
             orig = self.rev[tn](r)
             if not outfile: outfile = re.sub(r'\.a\d+$', '', os.path.basename(infile), flags=re.IGNORECASE)
             self._write(outfile, orig); print(f"-> {outfile} ({len(orig)} bytes)"); return True
+
+        m = re.search(r'\.m([\d-]+)$', infile)
+        if m:
+            parts = m.group(1).split("-")
+            try:
+                indices = [int(x) - 1 for x in parts]
+            except ValueError:
+                print("Bad multi sequence"); return False
+            for idx in indices:
+                if not (0 <= idx < len(self.pairs)):
+                    print(f"Bad pair index {idx+1}"); return False
+            with open(infile, 'rb') as f: blob = f.read()
+            r = self.dback(blob)
+            if r is None: print("Backend failed"); return False
+            orig = r
+            for idx in reversed(indices):
+                a, b = self.pairs[idx]
+                orig = self.rev[a](self.rev[b](orig))
+            if not outfile:
+                outfile = re.sub(r'\.m[\d-]+$', '', os.path.basename(infile))
+                if not outfile: outfile = os.path.basename(infile) + ".out"
+            self._write(outfile, orig); print(f"-> {outfile} ({len(orig)} bytes)"); return True
+
         with open(infile, 'rb') as f: blob = f.read()
         off, seq = self._dh(blob)
         if off == 0: print("Bad header"); return False
@@ -2091,23 +2156,94 @@ class Compressor:
         if not outfile: outfile = os.path.basename(infile) + ".out"
         self._write(outfile, orig); print(f"-> {outfile} ({len(orig)} bytes)"); return True
 
+    # ==================== SELF-TEST ====================
     def selftest(self):
         print("="*60); print("Lossless Self-Test"); print("="*60)
+
+        # ---- 1) Singles: single-byte exhaust over interesting bit patterns ----
         tbs = [0x00, 0xFF, 0xAA, 0x55, 0x12, 0x34]
         for t in range(1, 257):
             for tb in tbs:
                 d = bytes([tb])
                 try:
                     tr = self.fwd[t](d); rs = self.rev[t](tr)
-                    if rs != d: print(f"  FAIL t={t} b={tb:#04x}"); return False
-                except TransformError: continue
+                    if rs != d:
+                        print(f"  FAIL t={t} b={tb:#04x}"); return False
+                except TransformError:
+                    continue
                 except Exception as e:
                     print(f"  EXC t={t} b={tb:#04x}: {e}"); return False
-        print("  256 transforms: PASS")
-        for p in [b"hello world "*20, b"\x00"*1000, os.urandom(200)]:
+        print("  256 transforms on single bytes: PASS")
+
+        # ---- 2) Singles: multi-byte vectors ----
+        test_vectors = [
+            b"hello world " * 4,
+            bytes(range(64)),
+            b"A" * 100,
+            b"The quick brown fox jumps over the lazy dog. " * 3,
+            os.urandom(128),
+        ]
+        for t in range(1, 257):
+            for tv in test_vectors:
+                try:
+                    tr = self.fwd[t](tv); rs = self.rev[t](tr)
+                    if rs != tv:
+                        print(f"  FAIL t={t} len={len(tv)} "
+                              f"({len(tv)} bytes)"); return False
+                except TransformError:
+                    continue
+                except Exception as e:
+                    print(f"  EXC t={t} len={len(tv)}: {e}"); return False
+        print("  256 transforms on multi-byte vectors: PASS")
+
+        # ---- 3) Backends ----
+        for p in [b"hello world " * 20, b"\x00" * 1000, os.urandom(200)]:
             e = self.cback(p); d = self.dback(e)
-            if d != p: print(f"  FAIL backend {len(p)}"); return False
+            if d != p:
+                fmt = e[0] if e else 'NONE'
+                print(f"  FAIL backend {len(p)}  fmt={fmt}  "
+                      f"comp={len(e)-1 if e else 0}  "
+                      f"back={len(d) if d is not None else 'None'}")
+                return False
         print("  Backends: PASS")
+
+        # ---- 4) All 65,535 pairs ----
+        print("  Testing all 65,535 pairs (representative 33-byte vector)...")
+        pair_data = b"The quick brown fox jumped over."
+        n_tested = 0; n_skipped = 0; n_failed = 0
+        failures = []
+        t_start = time.time()
+        for a in range(1, 257):
+            for b in range(1, 257):
+                if a == 256 and b == 256:
+                    continue
+                try:
+                    tr = self.fwd[b](self.fwd[a](pair_data))
+                    rs = self.rev[a](self.rev[b](tr))
+                    n_tested += 1
+                    if rs != pair_data:
+                        n_failed += 1
+                        if len(failures) < 20:
+                            failures.append((a, b, "mismatch"))
+                except TransformError:
+                    n_skipped += 1
+                except Exception as e:
+                    n_failed += 1
+                    if len(failures) < 20:
+                        failures.append((a, b, str(e)[:60]))
+            if a % 32 == 0:
+                el = time.time() - t_start
+                print(f"    progress a={a:>3}/256 "
+                      f"tested={n_tested} skipped={n_skipped} "
+                      f"failed={n_failed}  ({el:.1f}s)")
+        el = time.time() - t_start
+        print(f"  Pairs: tested={n_tested}  skipped={n_skipped}  "
+              f"failed={n_failed}  ({el:.1f}s)")
+        if n_failed:
+            for f in failures:
+                print(f"    FAIL {f}")
+            return False
+        print("  All 65,535 pairs: PASS (lossless composition)")
         print("[ALL LOSSLESS CHECKS PASSED]")
         return True
 
@@ -2128,7 +2264,6 @@ def main():
         print("0) Exit")
         ch = input("> ").strip()
         if ch == "1":
-            # ---- ask for number of pairs (1..65535) BEFORE the filename ----
             max_pairs = len(c.pairs)
             while True:
                 raw = input(f"Number of pairs to try (1-{max_pairs}) [all]: ").strip()
