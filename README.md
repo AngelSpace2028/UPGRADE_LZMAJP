@@ -1,4 +1,4 @@
-UPGRADE_LZMAJP It’s mostly for Quantum Compression, Compression hybrid Software Quantum software is working correctly without bugs and without Errors, The best PJP-11
+UPGRADE_LZMAPAQJP It’s mostly for Quantum Compression, Compression hybrid Software Quantum software is working correctly without bugs and without Errors, The best PJP-11
 
 PAQJPVG_8.5-4 Replit App by Jurijus Pacalovas 8.5L-4 PAQ level 9 and zstandard level 22 app
 
@@ -22,16 +22,16 @@ UPGRADE\_PAQJPVG Compression 256 transformations losslessness Lossless 100% and 
 
 
 
-Group: Jurijus Pacalovas and Vincent Geoghegan helped add 1 byte to the front markers.
-We use markers for my paq: use 1-2 bytes; also use 1 byte: uses 00 63 00 00 or 28 B5 2F FD
+Jurijus Pacalovas
+I use markers for my paq: use 1-2 bytes; also use 1 byte: uses 00 63 00 00 or 28 B5 2F FD
 
 Checked:
 
-Group: Jurijus Pacalovas and Vincent Geoghegan helped add 1 byte to the front markers. We use markers for my paq: use 1-2 bytes; also use 1 byte: uses 00 63 00 00 or 28 B5 2F FD
+I use markers for my paq: use 1-2 bytes; also use 1 byte: uses 00 63 00 00 or 28 B5 2F FD
 
-Here is Portfolio UPGRADE_PAQJPVG
+Here is Portfolio UPGRADE_LZMAPAQJP
 Have written by Jurijus Pacalovas in September 25 in 2026 year
 
 PJP-9
 
-The best of the best JP
+The best of the best Majorana program written by Jurijus Pacalovas
