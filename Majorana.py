@@ -11,6 +11,7 @@ Patches:
   • 1.1e — t58/r58 asymmetry fix (la predictor update guarded by i >= 1).
   • 1.1f — robust file handling (missing/permission/empty file checks).
   • 1.1g — main() menu strings restored (SyntaxError fix).
+  • 1.2a — CCMX external backend (fmt 12, level-9 style, auto-verified).
 """
 
 import math, random, decimal, hashlib, base64, heapq, struct, os
@@ -37,6 +38,7 @@ except ImportError:
     lzma = None; HAS_LZMA = False; LF_RAW = LF_DELTA = LF_BCJ = None
 
 HAS_ZPAQ = shutil.which('zpaq') is not None
+HAS_CCMX = shutil.which('ccmx') is not None
 
 def _imp_zstd():
     try:
@@ -98,7 +100,8 @@ if not HAS_BROTLI:
 
 print(f"\nBackends: zstd={'Y' if HAS_ZSTD else 'N'} lzma={'Y' if HAS_LZMA else 'N'} "
       f"paq={'Y' if paq else 'N'} brotli={'Y' if HAS_BROTLI else 'N'} "
-      f"pyppmd={'Y' if HAS_PPMD else 'N'} zpaq={'Y' if HAS_ZPAQ else 'N'}")
+      f"pyppmd={'Y' if HAS_PPMD else 'N'} zpaq={'Y' if HAS_ZPAQ else 'N'} "
+      f"ccmx={'Y' if HAS_CCMX else 'N'}")
 
 PROGNAME = "PPMD_1.1"
 
@@ -452,6 +455,61 @@ class Compressor:
             except Exception: return None
         return None
 
+    # ---------- CCMX wrappers (external binary, level-9 style) ----------
+    def _ccmxc(self, d):
+        """Compress via external ccmx binary. Returns bytes or None.
+        Tries several known CLI shapes; the first that yields a file wins."""
+        if not HAS_CCMX: return None
+        with tempfile.TemporaryDirectory() as td:
+            inp = os.path.join(td, 'i')
+            out = os.path.join(td, 'o.ccmx')
+            with open(inp, 'wb') as f: f.write(d)
+            attempts = (
+                # classic ccmx 1.30a usage: ccmx c in out <mem_MB>
+                ['ccmx', 'c', inp, out, '256'],
+                ['ccmx', 'c', inp, out, '1024'],
+                ['ccmx', 'c', inp, out],
+                ['ccmx', '-c', inp, out],
+                ['ccmx', 'c', inp],
+                ['ccmx', inp],
+            )
+            for args in attempts:
+                try:
+                    r = subprocess.run(args, capture_output=True, timeout=600)
+                    if r.returncode != 0:
+                        continue
+                    for p in (out, inp + '.ccmx', inp + '.cmx', inp + '.ccm'):
+                        if os.path.exists(p):
+                            with open(p, 'rb') as f: return f.read()
+                except Exception:
+                    continue
+        return None
+
+    def _ccmxd(self, d):
+        """Decompress via external ccmx binary. Returns bytes or None."""
+        if not HAS_CCMX: return None
+        with tempfile.TemporaryDirectory() as td:
+            inp = os.path.join(td, 'i.ccmx')
+            out = os.path.join(td, 'o')
+            with open(inp, 'wb') as f: f.write(d)
+            attempts = (
+                ['ccmx', 'd', inp, out],
+                ['ccmx', '-d', inp, out],
+                ['ccmx', 'd', inp],
+                ['ccmx', 'x', inp],
+            )
+            for args in attempts:
+                try:
+                    r = subprocess.run(args, capture_output=True, timeout=600)
+                    if r.returncode != 0:
+                        continue
+                    for p in (out, inp[:-5], inp[:-4], inp[:-5] + '.out'):
+                        if p and os.path.exists(p):
+                            with open(p, 'rb') as f: return f.read()
+                except Exception:
+                    continue
+        return None
+
     def cback(self, d):
         cs = [(0, d)]
         if HAS_ZSTD:
@@ -492,6 +550,11 @@ class Compressor:
             try:
                 c = self._zpc(d)
                 if c: cs.append((10, c))
+            except Exception: pass
+        if HAS_CCMX:
+            try:
+                c = self._ccmxc(d)
+                if c: cs.append((12, c))
             except Exception: pass
 
         for fmt, comp in sorted(cs, key=lambda x: len(x[1])):
@@ -542,6 +605,9 @@ class Compressor:
             except Exception: return None
         if f == 11 and HAS_ZSTD and self._zd_dict is not None:
             try: return self._zd_dict.decompress(b'\x28\xb5\x2f\xfd' + p)
+            except Exception: return None
+        if f == 12 and HAS_CCMX:
+            try: return self._ccmxd(p)
             except Exception: return None
         return None
 
@@ -2264,7 +2330,6 @@ class Compressor:
     def selftest(self):
         print("="*60); print("Lossless Self-Test"); print("="*60)
 
-        # ---- 1) Singles: single-byte exhaust over interesting bit patterns ----
         tbs = [0x00, 0xFF, 0xAA, 0x55, 0x12, 0x34]
         for t in range(1, 257):
             for tb in tbs:
@@ -2279,7 +2344,6 @@ class Compressor:
                     print(f"  EXC t={t} b={tb:#04x}: {e}"); return False
         print("  256 transforms on single bytes: PASS")
 
-        # ---- 2) Singles: multi-byte vectors ----
         test_vectors = [
             b"hello world " * 4,
             bytes(range(64)),
@@ -2300,7 +2364,6 @@ class Compressor:
                     print(f"  EXC t={t} len={len(tv)}: {e}"); return False
         print("  256 transforms on multi-byte vectors: PASS")
 
-        # ---- 3) Backends ----
         for p in [b"hello world " * 20, b"\x00" * 1000, os.urandom(200)]:
             e = self.cback(p); d = self.dback(e)
             if d != p:
@@ -2311,7 +2374,6 @@ class Compressor:
                 return False
         print("  Backends: PASS")
 
-        # ---- 4) All 65,535 pairs ----
         print("  Testing all 65,535 pairs (representative 33-byte vector)...")
         pair_data = b"The quick brown fox jumped over."
         n_tested = 0; n_skipped = 0; n_failed = 0
