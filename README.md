@@ -30,7 +30,7 @@ Checked:
 Group: Jurijus Pacalovas and Vincent Geoghegan helped add 1 byte to the front markers. We use markers for my paq: use 1-2 bytes; also use 1 byte: uses 00 63 00 00 or 28 B5 2F FD
 
 Here is Portfolio UPGRADE_PAQJPVG
-We have written 1 version of software and I helped a little bit Vincent Geoghegan
+Have written by Jurijus Pacalovas in September 25 in 2026 year
 
 PJP-9
 
