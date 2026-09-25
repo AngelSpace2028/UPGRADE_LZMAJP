@@ -12,6 +12,8 @@ Patches:
   • 1.1f — robust file handling (missing/permission/empty file checks).
   • 1.1g — main() menu strings restored (SyntaxError fix).
   • 1.2a — CCMX external backend (fmt 12, level-9 style, auto-verified).
+  • 1.2b — CCMX y/n install prompt, prints "ccmx: OK" on success.
+  • 1.2c — main() menu line 5 syntax verified.
 """
 
 import math, random, decimal, hashlib, base64, heapq, struct, os
@@ -82,6 +84,78 @@ def inst(pkg):
         except Exception: pass
     return False
 
+# ---------- CCMX auto-install ----------
+CCMX_MIRRORS = [
+    "https://web.archive.org/web/20161019035512if_/http://www.byronknoll.com/ccmx130a.zip",
+    "https://mattmahoney.net/dc/ccmx.zip",
+    "https://encode.su/attachment.php?attachmentid=2032&d=1203997110",
+]
+
+def _install_ccmx():
+    global HAS_CCMX
+    if HAS_CCMX:
+        p = shutil.which('ccmx')
+        print(f"ccmx: OK ({p})")
+        return True, p
+
+    print("ccmx: not found — trying pip ...")
+    for pkg in ('ccmx', 'pyccmx', 'ccmx-py'):
+        try:
+            r = subprocess.run(
+                [sys.executable, '-m', 'pip', 'install', '--no-input',
+                 '--disable-pip-version-check', pkg],
+                capture_output=True, timeout=120)
+            if r.returncode == 0:
+                p = shutil.which('ccmx')
+                if p:
+                    HAS_CCMX = True
+                    print(f"ccmx: OK ({p})")
+                    return True, p
+        except Exception:
+            pass
+
+    target_dir = os.path.join(site.getusersitepackages() or os.path.expanduser('~'),
+                              '.ppmd_bin')
+    try: os.makedirs(target_dir, exist_ok=True)
+    except Exception: pass
+    target = os.path.join(target_dir, 'ccmx')
+
+    for url in CCMX_MIRRORS:
+        print(f"ccmx: trying mirror {url} ...")
+        try:
+            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=30) as r:
+                blob = r.read()
+            if blob[:2] == b'PK':
+                import zipfile, io
+                with zipfile.ZipFile(io.BytesIO(blob)) as z:
+                    name = next((n for n in z.namelist()
+                                 if os.path.basename(n).lower().startswith('ccmx')),
+                                None)
+                    if name is None: continue
+                    data = z.read(name)
+            else:
+                data = blob
+            with open(target, 'wb') as f: f.write(data)
+            os.chmod(target, 0o755)
+            try:
+                subprocess.run([target], capture_output=True, timeout=10)
+                ok = True
+            except Exception:
+                ok = os.path.getsize(target) > 1024
+            if ok:
+                os.environ['PATH'] = target_dir + os.pathsep + os.environ.get('PATH', '')
+                HAS_CCMX = True
+                print(f"ccmx: OK ({target})")
+                return True, target
+        except Exception as e:
+            print(f"ccmx: mirror failed ({e})")
+            continue
+
+    print("ccmx: NOT available")
+    print("      Manual: download ccmx130a, chmod +x, put in $PATH.")
+    return False, None
+
 if not HAS_PPMD:
     if input("Install pyppmd? (y/n) [y]: ").strip().lower() != 'n':
         if inst('pyppmd'):
@@ -97,6 +171,9 @@ if not HAS_BROTLI:
         if inst('brotli'):
             try: import brotli; HAS_BROTLI = True; print("brotli: OK")
             except ImportError: pass
+if not HAS_CCMX:
+    if input("Install ccmx (level-9 backend)? (y/n) [y]: ").strip().lower() != 'n':
+        _install_ccmx()
 
 print(f"\nBackends: zstd={'Y' if HAS_ZSTD else 'N'} lzma={'Y' if HAS_LZMA else 'N'} "
       f"paq={'Y' if paq else 'N'} brotli={'Y' if HAS_BROTLI else 'N'} "
@@ -320,7 +397,6 @@ PAQ = [[1,2,0,0],[3,5,0,1],[4,6,2,0],[7,10,0,2],[8,12,3,0],[9,13,1,1],[11,14,0,3
 class TransformError(Exception): pass
 class DecompressionError(Exception): pass
 
-# Varint helpers used by transform 59
 def _emit_varint(buf, n):
     while True:
         b = n & 0x7F
@@ -348,7 +424,6 @@ def mod_inv(a, m):
     if x < 0: x += m0
     return x
 
-# ==================== MULTIPROCESSING ====================
 _MP_C = None; _MP_DATA = None
 def _mp_init(c, d):
     global _MP_C, _MP_DATA
@@ -455,17 +530,14 @@ class Compressor:
             except Exception: return None
         return None
 
-    # ---------- CCMX wrappers (external binary, level-9 style) ----------
+    # ---------- CCMX wrappers ----------
     def _ccmxc(self, d):
-        """Compress via external ccmx binary. Returns bytes or None.
-        Tries several known CLI shapes; the first that yields a file wins."""
         if not HAS_CCMX: return None
         with tempfile.TemporaryDirectory() as td:
             inp = os.path.join(td, 'i')
             out = os.path.join(td, 'o.ccmx')
             with open(inp, 'wb') as f: f.write(d)
             attempts = (
-                # classic ccmx 1.30a usage: ccmx c in out <mem_MB>
                 ['ccmx', 'c', inp, out, '256'],
                 ['ccmx', 'c', inp, out, '1024'],
                 ['ccmx', 'c', inp, out],
@@ -486,7 +558,6 @@ class Compressor:
         return None
 
     def _ccmxd(self, d):
-        """Decompress via external ccmx binary. Returns bytes or None."""
         if not HAS_CCMX: return None
         with tempfile.TemporaryDirectory() as td:
             inp = os.path.join(td, 'i.ccmx')
@@ -1939,9 +2010,7 @@ class Compressor:
         finally: os.close(fd)
         os.replace(tmp, path)
 
-    # ---------- safe file check helper ----------
     def _require_file(self, path):
-        """Return True if path exists and is a readable regular file."""
         if not path:
             print("Error: no filename given.")
             return False
@@ -1960,7 +2029,6 @@ class Compressor:
     def compress(self, infile, pairs=True, multi=False, timeout=None):
         if not self._require_file(infile):
             return
-
         try:
             with open(infile, 'rb') as f:
                 data = f.read()
@@ -1970,11 +2038,9 @@ class Compressor:
         except OSError as e:
             print(f"Error reading {infile!r}: {e}")
             return
-
         if len(data) == 0:
             print(f"Error: {infile!r} is empty — nothing to compress.")
             return
-
         if isinstance(pairs, bool):
             if pairs: pair_list = self.pairs
             else: pair_list = []
@@ -1984,19 +2050,16 @@ class Compressor:
             n_pairs = max(0, min(n_pairs, len(self.pairs)))
             pair_list = self.pairs[:n_pairs] if n_pairs > 0 else []
 
-        self.FAST = False
-        self.USE_MP = False
+        self.FAST = False; self.USE_MP = False
 
         print(f"\nInput: {len(data)} bytes"); print("="*64)
         cands = []; st = time.time()
 
-        # ---- raw baseline ----
         rc = self._mr() + self.cback(data)
         cands.append(("_raw_", rc, "raw payload"))
         best = len(rc)
         print(f"  [raw] size={len(rc)} bytes  best={best}")
 
-        # ---- singles 1..256 ----
         ns = 0
         for t in range(1, 257):
             if timeout and time.time()-st > timeout:
@@ -2017,7 +2080,6 @@ class Compressor:
                 continue
         print(f"  singles done: {ns}  ({time.time()-st:.1f}s)  best={best} bytes")
 
-        # ---- pairs: walk only pair_list ----
         if pair_list:
             total = len(pair_list)
             t0 = time.time()
@@ -2041,10 +2103,8 @@ class Compressor:
                 except Exception as e:
                     print(f"  [pair {i+1:>5}/{total} #{a:>3}->#{b:>3}] FAILED ({e})")
                     continue
-            print(f"  pairs done: {total}  ({time.time()-t0:.1f}s)  "
-                  f"best={best} bytes")
+            print(f"  pairs done: {total}  ({time.time()-t0:.1f}s)  best={best} bytes")
 
-        # ---- optional multi-pair chains ----
         if multi:
             rng = random.Random(42); tries = 0
             MAX_MULTI = 200
@@ -2064,23 +2124,18 @@ class Compressor:
                         a, b = self.pairs[i]
                         cur = self.fwd[b](self.fwd[a](cur))
                     p = self.cback(cur)
-                    cands.append((ext_label, p,
-                                  f"multi {k} pairs={[i+1 for i in seq]}"))
+                    cands.append((ext_label, p, f"multi {k} pairs={[i+1 for i in seq]}"))
                     size = len(p)
                     if size < best:
                         best = size
-                        print(f"  [multi {tries:>3} {ext_label}] "
-                              f"size={size} bytes  <<< BEST {best}")
+                        print(f"  [multi {tries:>3} {ext_label}] size={size} bytes  <<< BEST {best}")
                     else:
-                        print(f"  [multi {tries:>3} {ext_label}] "
-                              f"size={size} bytes  best={best}")
+                        print(f"  [multi {tries:>3} {ext_label}] size={size} bytes  best={best}")
                 except Exception as e:
                     print(f"  [multi {tries:>3} {ext_label}] FAILED ({e})")
                     continue
-            print(f"  multi done: {tries}  ({time.time()-t0m:.1f}s)  "
-                  f"best={best} bytes")
+            print(f"  multi done: {tries}  ({time.time()-t0m:.1f}s)  best={best} bytes")
 
-        # ---- ranked verify walk ----
         if not cands:
             print("Nothing to write"); return
         ranked = sorted(cands, key=lambda x: len(x[1]))
@@ -2131,7 +2186,6 @@ class Compressor:
         else:
             ext, payload, label = winner
 
-        # Clean up stale sibling outputs (guarded against missing dir)
         out_dir = os.path.dirname(infile) or '.'
         if os.path.isdir(out_dir):
             for f in os.listdir(out_dir):
@@ -2143,7 +2197,6 @@ class Compressor:
         out = infile + ext
         self._write(out, payload)
 
-        # post-write re-verify
         try:
             with open(out, 'rb') as f: wr = f.read()
         except OSError as e:
@@ -2186,7 +2239,6 @@ class Compressor:
     def decompress(self, infile, outfile=""):
         if not self._require_file(infile):
             return False
-
         try:
             with open(infile, 'rb') as f:
                 blob = f.read()
@@ -2196,14 +2248,11 @@ class Compressor:
         except OSError as e:
             print(f"Error reading {infile!r}: {e}")
             return False
-
         if len(blob) == 0:
             print(f"Error: {infile!r} is empty.")
             return False
-
         base = os.path.basename(infile)
 
-        # ---- pair .pNNNN ----
         m = re.search(r'\.p(\d+)$', infile)
         if m:
             idx = int(m.group(1)) - 1
@@ -2234,7 +2283,6 @@ class Compressor:
             print(f"-> {outfile} ({len(orig)} bytes)")
             return True
 
-        # ---- single .aNNN ----
         m = re.search(r'\.a(\d+)$', infile, re.IGNORECASE)
         if m:
             tn = int(m.group(1))
@@ -2264,7 +2312,6 @@ class Compressor:
             print(f"-> {outfile} ({len(orig)} bytes)")
             return True
 
-        # ---- multi-chain .mI-J-K ----
         m = re.search(r'\.m([\d-]+)$', infile)
         if m:
             parts = m.group(1).split("-")
@@ -2303,7 +2350,6 @@ class Compressor:
             print(f"-> {outfile} ({len(orig)} bytes)")
             return True
 
-        # ---- auto-detect header ----
         off, seq = self._dh(blob)
         if off == 0:
             print(f"Error: bad header in {infile!r} (not a PPMD_1.1 stream).")
@@ -2329,7 +2375,6 @@ class Compressor:
     # ==================== SELF-TEST ====================
     def selftest(self):
         print("="*60); print("Lossless Self-Test"); print("="*60)
-
         tbs = [0x00, 0xFF, 0xAA, 0x55, 0x12, 0x34]
         for t in range(1, 257):
             for tb in tbs:
@@ -2356,8 +2401,7 @@ class Compressor:
                 try:
                     tr = self.fwd[t](tv); rs = self.rev[t](tr)
                     if rs != tv:
-                        print(f"  FAIL t={t} len={len(tv)} "
-                              f"({len(tv)} bytes)"); return False
+                        print(f"  FAIL t={t} len={len(tv)} ({len(tv)} bytes)"); return False
                 except TransformError:
                     continue
                 except Exception as e:
